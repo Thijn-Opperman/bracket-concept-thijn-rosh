@@ -3,6 +3,39 @@ export type Team = {
   name: string;
   logo?: string;
   score?: number;
+  countryCode?: string;
+};
+
+export type MatchMediaLink = {
+  platform:
+    | 'twitch'
+    | 'youtube'
+    | 'facebook'
+    | 'tiktok'
+    | 'instagram'
+    | 'x'
+    | 'website';
+  url: string;
+  label?: string;
+};
+
+export type MatchSponsor = {
+  name: string;
+  url?: string;
+  logo?: string;
+};
+
+export type MatchDetails = {
+  title: string;
+  subtitle?: string;
+  description?: string;
+  featuredPlayers?: string[];
+  streams?: MatchMediaLink[];
+  hashtags?: string[];
+  prizeInfo?: string;
+  scheduleNote?: string;
+  highlightColor?: string;
+  sponsors?: MatchSponsor[];
 };
 
 export type Match = {
@@ -13,6 +46,7 @@ export type Match = {
   winnerIndex?: number;
   startTime?: string;
   court?: string;
+  details?: MatchDetails;
 };
 
 export type Round = {
@@ -46,5 +80,6 @@ export type BracketState = {
   rounds: Round[];
   teams: Team[];
   settings: BracketSettings;
+  selectedMatchId: string | null;
 };
 

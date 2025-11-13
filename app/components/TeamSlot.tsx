@@ -1,8 +1,9 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import type { Team } from '@/app/types/bracket';
 import { useBracketStore } from '@/app/store/bracketStore';
+import type { Team } from '@/app/types/bracket';
+import type { ChangeEvent, MouseEvent } from 'react';
 
 interface TeamSlotProps {
   team: Team | null;
@@ -28,13 +29,14 @@ export default function TeamSlot({
     fast: 0.15,
   };
 
-  const handleClick = () => {
+  const handleClick = (event: MouseEvent<HTMLDivElement>) => {
+    event.stopPropagation();
     if (!team || !isClickable) return;
     setWinner(matchId, teamIndex);
     onSelect?.();
   };
 
-  const handleScoreChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleScoreChange = (e: ChangeEvent<HTMLInputElement>) => {
     const score = parseInt(e.target.value) || 0;
     setTeamScore(matchId, teamIndex, score);
   };

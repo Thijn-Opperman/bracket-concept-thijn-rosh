@@ -1,4 +1,10 @@
-import type { Team, Round, Match, BracketType } from '@/app/types/bracket';
+import type {
+  Team,
+  Round,
+  Match,
+  BracketType,
+  MatchDetails,
+} from '@/app/types/bracket';
 
 export function generateBracket(teams: Team[], type: BracketType): Round[] {
   switch (type) {
@@ -37,11 +43,23 @@ function generateSingleElimination(teams: Team[]): Round[] {
     const roundName = getRoundName(currentTeams.length, rounds.length);
     
     for (let i = 0; i < currentTeams.length; i += 2) {
+      const startTime = getMatchStartTime(roundIndex, i / 2);
+      const court = getCourtName(roundIndex, i / 2);
       matches.push({
         id: `r${roundIndex}-m${i / 2}`,
         roundIndex,
         matchIndex: i / 2,
         teams: [currentTeams[i], currentTeams[i + 1] || null],
+        startTime,
+        court,
+        details: createDefaultMatchDetails({
+          matchId: `r${roundIndex}-m${i / 2}`,
+          roundName,
+          startTime,
+          court,
+          teamA: currentTeams[i],
+          teamB: currentTeams[i + 1] || null,
+        }),
       });
     }
     
@@ -101,11 +119,23 @@ function generateRoundRobin(teams: Team[]): Round[] {
       );
       
       if (pairing) {
+        const startTime = getMatchStartTime(round, match);
+        const court = getCourtName(round, match);
         matches.push({
           id: `rr-r${round}-m${match}`,
           roundIndex: round,
           matchIndex: match,
           teams: pairing,
+          startTime,
+          court,
+          details: createDefaultMatchDetails({
+            matchId: `rr-r${round}-m${match}`,
+            roundName: `Ronde ${round + 1}`,
+            startTime,
+            court,
+            teamA: pairing[0],
+            teamB: pairing[1],
+          }),
         });
         usedTeams.add(pairing[0].id);
         usedTeams.add(pairing[1].id);
@@ -140,5 +170,122 @@ function getRoundName(numTeams: number, roundIndex: number): string {
   ];
   
   return roundNames[roundIndex] || `Ronde ${roundIndex + 1}`;
+}
+
+function getMatchStartTime(roundIndex: number, matchIndex: number): string {
+  const baseHour = 13; // 13:00 tournament start
+  const minutesPerMatch = 45;
+  const totalMinutes = roundIndex * 120 + matchIndex * minutesPerMatch;
+  const hour = Math.floor(baseHour + totalMinutes / 60);
+  const minute = totalMinutes % 60;
+  return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+}
+
+function getCourtName(roundIndex: number, matchIndex: number): string {
+  const courts = ['Main Arena', 'Side Stage', 'Velocity Hall', 'Legends Dome'];
+  const index = (roundIndex + matchIndex) % courts.length;
+  return courts[index];
+}
+
+function createDefaultMatchDetails({
+  matchId,
+  roundName,
+  startTime,
+  court,
+  teamA,
+  teamB,
+}: {
+  matchId: string;
+  roundName: string;
+  startTime?: string;
+  court?: string;
+  teamA: Team | null;
+  teamB: Team | null;
+}): MatchDetails {
+  const teamAName = formatTeamName(teamA);
+  const teamBName = formatTeamName(teamB);
+  const matchup = `${teamAName} vs ${teamBName}`;
+
+  const baseHashtags = ['#BracketShowdown', '#RoadToGlory'];
+  const customTags = [teamAName, teamBName]
+    .filter((name) => name !== 'TBD')
+    .map((name) => `#${slugify(name)}`);
+  const hashtags = Array.from(new Set([...baseHashtags, ...customTags]));
+
+  const highlight = teamA?.countryCode || teamB?.countryCode ? '#f97316' : undefined;
+
+  return {
+    title: roundName,
+    subtitle: matchup,
+    description: `Live coverage van ${matchup}. Volg de spanning vanuit ${court ?? 'de arena'} om ${startTime ?? 'onbekende tijd'}.`,
+    featuredPlayers: createFeaturedPlayers(teamA, teamB),
+    streams: createDefaultStreams(teamAName, teamBName),
+    hashtags,
+    prizeInfo: 'Winnaar gaat door naar de volgende ronde en komt dichter bij de hoofdtrofee.',
+    scheduleNote: startTime ? `Check in 15 minuten voor ${startTime} voor pre-game analyses.` : undefined,
+    highlightColor: highlight,
+    sponsors: [
+      { name: 'Pulse Energy Drink', url: 'https://pulsegaming.com' },
+      { name: 'StreamZone', url: 'https://streamzone.gg' },
+    ],
+  };
+}
+
+function formatTeamName(team: Team | null): string {
+  if (!team) return 'TBD';
+  if (team.name.toLowerCase() === 'bye') return 'Automatische winst';
+  return team.name;
+}
+
+function slugify(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]/g, '')
+    .replace(/\s+/g, '')
+    .slice(0, 15);
+}
+
+function createDefaultStreams(teamAName: string, teamBName: string) {
+  const toHandle = (name: string) =>
+    slugify(name).toLowerCase() || 'mainbroadcast';
+
+  const handles = [teamAName, teamBName]
+    .filter((name) => name !== 'TBD' && name !== 'Automatische winst')
+    .map((name) => toHandle(name));
+
+  const primaryHandle = handles[0] ?? 'mainstage';
+  const secondaryHandle = handles[1] ?? 'altstream';
+
+  return [
+    {
+      platform: 'twitch' as const,
+      url: `https://twitch.tv/${primaryHandle}`,
+      label: 'Live op Twitch',
+    },
+    {
+      platform: 'youtube' as const,
+      url: `https://youtube.com/@${secondaryHandle}`,
+      label: 'Replay op YouTube',
+    },
+    {
+      platform: 'x' as const,
+      url: `https://x.com/${primaryHandle}`,
+      label: 'Live updates op X',
+    },
+  ];
+}
+
+function createFeaturedPlayers(teamA: Team | null, teamB: Team | null): string[] | undefined {
+  const players: string[] = [];
+
+  if (teamA) {
+    players.push(`${teamA.name} • Captain`);
+  }
+  if (teamB) {
+    players.push(`${teamB.name} • MVP`);
+  }
+
+  return players.length > 0 ? players : undefined;
 }
 

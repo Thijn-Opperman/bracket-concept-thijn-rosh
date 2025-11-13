@@ -35,6 +35,8 @@ interface BracketStore extends BracketState {
   addTeam: (team: Team) => void;
   removeTeam: (teamId: string) => void;
   updateTeam: (teamId: string, updates: Partial<Team>) => void;
+  setSelectedMatch: (matchId: string | null) => void;
+  getMatchById: (matchId: string) => Match | undefined;
 }
 
 const generateInitialTeams = (count: number): Team[] => {
@@ -58,6 +60,7 @@ export const useBracketStore = create<BracketStore>()(
         rounds: initialBracket,
         teams: initialTeams,
         settings: defaultSettings,
+        selectedMatchId: null,
         setSettings: (newSettings) => {
           const currentSettings = get().settings;
           const updatedSettings = { ...currentSettings, ...newSettings };
@@ -93,6 +96,7 @@ export const useBracketStore = create<BracketStore>()(
               settings: updatedSettings,
               teams: updatedTeams,
               rounds: newBracket,
+              selectedMatchId: null,
             });
           } else {
             set({ settings: updatedSettings });
@@ -191,13 +195,13 @@ export const useBracketStore = create<BracketStore>()(
         initializeBracket: (teams) => {
           const { settings } = get();
           const bracket = generateBracket(teams, settings.bracketType);
-          set({ teams, rounds: bracket });
+          set({ teams, rounds: bracket, selectedMatchId: null });
         },
         resetBracket: () => {
           const { settings } = get();
           const teams = generateInitialTeams(settings.numTeams);
           const bracket = generateBracket(teams, settings.bracketType);
-          set({ teams, rounds: bracket });
+          set({ teams, rounds: bracket, selectedMatchId: null });
         },
         addTeam: (team) => {
           const { teams } = get();
@@ -212,6 +216,19 @@ export const useBracketStore = create<BracketStore>()(
           set({
             teams: teams.map((t) => (t.id === teamId ? { ...t, ...updates } : t)),
           });
+        },
+        setSelectedMatch: (matchId) => {
+          set({ selectedMatchId: matchId });
+        },
+        getMatchById: (matchId) => {
+          const { rounds } = get();
+          for (const round of rounds) {
+            const found = round.matches.find((match) => match.id === matchId);
+            if (found) {
+              return found;
+            }
+          }
+          return undefined;
         },
       };
     },
