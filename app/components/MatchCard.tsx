@@ -14,7 +14,9 @@ interface MatchCardProps {
 }
 
 export default function MatchCard({ match, roundIndex }: MatchCardProps) {
-  const { settings, setWinner, setSelectedMatch, rounds } = useBracketStore();
+  const { settings, setWinner, setSelectedMatch, getActiveBracket } = useBracketStore();
+  const activeBracket = getActiveBracket();
+  const rounds = activeBracket?.rounds ?? [];
   
   // Find the next match for the winner
   const nextMatch = useMemo(() => {

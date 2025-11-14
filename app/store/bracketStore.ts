@@ -9,6 +9,7 @@ import type {
   Match,
   Round,
   BracketType,
+  BracketGroup,
 } from '@/app/types/bracket';
 import { generateBracket } from '@/app/utils/bracketGenerator';
 
@@ -37,6 +38,8 @@ interface BracketStore extends BracketState {
   updateTeam: (teamId: string, updates: Partial<Team>) => void;
   setSelectedMatch: (matchId: string | null) => void;
   getMatchById: (matchId: string) => Match | undefined;
+  setActiveBracket: (bracketId: string) => void;
+  getActiveBracket: () => BracketGroup | undefined;
 }
 
 const generateInitialTeams = (count: number): Team[] => {
@@ -51,13 +54,14 @@ export const useBracketStore = create<BracketStore>()(
   persist(
     (set, get) => {
       const initialTeams = generateInitialTeams(defaultSettings.numTeams);
-      const initialBracket = generateBracket(
+      const initialBrackets = generateBracket(
         initialTeams,
         defaultSettings.bracketType
       );
 
       return {
-        rounds: initialBracket,
+        brackets: initialBrackets,
+        activeBracketId: initialBrackets[0]?.id ?? null,
         teams: initialTeams,
         settings: defaultSettings,
         selectedMatchId: null,
@@ -91,11 +95,12 @@ export const useBracketStore = create<BracketStore>()(
               }
             }
             
-            const newBracket = generateBracket(updatedTeams, bracketType);
+            const newBrackets = generateBracket(updatedTeams, bracketType);
             set({
               settings: updatedSettings,
               teams: updatedTeams,
-              rounds: newBracket,
+              brackets: newBrackets,
+              activeBracketId: newBrackets[0]?.id ?? null,
               selectedMatchId: null,
             });
           } else {
@@ -103,60 +108,44 @@ export const useBracketStore = create<BracketStore>()(
           }
         },
         setWinner: (matchId, winnerIndex) => {
-          const { rounds } = get();
+          const { brackets } = get();
           
-          // Find the match and its round
+          // Find the match in all brackets
+          let foundBracketIndex = -1;
           let matchRoundIndex = -1;
           let matchIndex = -1;
           let match: Match | null = null;
           
-          for (let i = 0; i < rounds.length; i++) {
-            const idx = rounds[i].matches.findIndex(m => m.id === matchId);
-            if (idx !== -1) {
-              matchRoundIndex = i;
-              matchIndex = idx;
-              match = rounds[i].matches[idx];
-              break;
+          for (let bIdx = 0; bIdx < brackets.length; bIdx++) {
+            const bracket = brackets[bIdx];
+            for (let i = 0; i < bracket.rounds.length; i++) {
+              const idx = bracket.rounds[i].matches.findIndex(m => m.id === matchId);
+              if (idx !== -1) {
+                foundBracketIndex = bIdx;
+                matchRoundIndex = i;
+                matchIndex = idx;
+                match = bracket.rounds[i].matches[idx];
+                break;
+              }
             }
+            if (foundBracketIndex !== -1) break;
           }
           
-          if (!match || matchRoundIndex === -1) return;
+          if (!match || foundBracketIndex === -1 || matchRoundIndex === -1) return;
           
           const winner = match.teams[winnerIndex];
           if (!winner) return;
           
           // Update the match with winner
-          const updatedRounds = rounds.map((round, roundIdx) => {
-            if (roundIdx === matchRoundIndex) {
-              return {
-                ...round,
-                matches: round.matches.map((m, mIdx) => {
-                  if (mIdx === matchIndex) {
-                    return { ...m, winnerIndex };
-                  }
-                  return m;
-                }),
-              };
-            }
-            return round;
-          });
-          
-          // Propagate winner to next round if exists
-          if (matchRoundIndex < updatedRounds.length - 1) {
-            const nextRound = updatedRounds[matchRoundIndex + 1];
-            const nextMatchIndex = Math.floor(matchIndex / 2);
-            const slotIndex = matchIndex % 2;
-            
-            if (nextRound && nextRound.matches[nextMatchIndex]) {
-              const finalRounds = updatedRounds.map((round, roundIdx) => {
-                if (roundIdx === matchRoundIndex + 1) {
+          const updatedBrackets = brackets.map((bracket, bIdx) => {
+            if (bIdx === foundBracketIndex) {
+              const updatedRounds = bracket.rounds.map((round, roundIdx) => {
+                if (roundIdx === matchRoundIndex) {
                   return {
                     ...round,
                     matches: round.matches.map((m, mIdx) => {
-                      if (mIdx === nextMatchIndex) {
-                        const newTeams: [Team | null, Team | null] = [...m.teams];
-                        newTeams[slotIndex] = { ...winner, score: undefined };
-                        return { ...m, teams: newTeams };
+                      if (mIdx === matchIndex) {
+                        return { ...m, winnerIndex };
                       }
                       return m;
                     }),
@@ -165,43 +154,88 @@ export const useBracketStore = create<BracketStore>()(
                 return round;
               });
               
-              set({ rounds: finalRounds });
-              return;
-            }
-          }
-          
-          set({ rounds: updatedRounds });
-        },
-        setTeamScore: (matchId, teamIndex, score) => {
-          const { rounds } = get();
-          const newRounds = rounds.map((round) => ({
-            ...round,
-            matches: round.matches.map((match) => {
-              if (match.id === matchId) {
-                const newTeams: [Team | null, Team | null] = [...match.teams];
-                if (newTeams[teamIndex]) {
-                  newTeams[teamIndex] = {
-                    ...newTeams[teamIndex]!,
-                    score,
+              // Propagate winner to next round if exists
+              if (matchRoundIndex < updatedRounds.length - 1) {
+                const nextRound = updatedRounds[matchRoundIndex + 1];
+                const nextMatchIndex = Math.floor(matchIndex / 2);
+                const slotIndex = matchIndex % 2;
+                
+                if (nextRound && nextRound.matches[nextMatchIndex]) {
+                  return {
+                    ...bracket,
+                    rounds: updatedRounds.map((round, roundIdx) => {
+                      if (roundIdx === matchRoundIndex + 1) {
+                        return {
+                          ...round,
+                          matches: round.matches.map((m, mIdx) => {
+                            if (mIdx === nextMatchIndex) {
+                              const newTeams: [Team | null, Team | null] = [...m.teams];
+                              newTeams[slotIndex] = { ...winner, score: undefined };
+                              return { ...m, teams: newTeams };
+                            }
+                            return m;
+                          }),
+                        };
+                      }
+                      return round;
+                    }),
                   };
                 }
-                return { ...match, teams: newTeams };
               }
-              return match;
-            }),
+              
+              return {
+                ...bracket,
+                rounds: updatedRounds,
+              };
+            }
+            return bracket;
+          });
+          
+          set({ brackets: updatedBrackets });
+        },
+        setTeamScore: (matchId, teamIndex, score) => {
+          const { brackets } = get();
+          const updatedBrackets = brackets.map((bracket) => ({
+            ...bracket,
+            rounds: bracket.rounds.map((round) => ({
+              ...round,
+              matches: round.matches.map((match) => {
+                if (match.id === matchId) {
+                  const newTeams: [Team | null, Team | null] = [...match.teams];
+                  if (newTeams[teamIndex]) {
+                    newTeams[teamIndex] = {
+                      ...newTeams[teamIndex]!,
+                      score,
+                    };
+                  }
+                  return { ...match, teams: newTeams };
+                }
+                return match;
+              }),
+            })),
           }));
-          set({ rounds: newRounds });
+          set({ brackets: updatedBrackets });
         },
         initializeBracket: (teams) => {
           const { settings } = get();
-          const bracket = generateBracket(teams, settings.bracketType);
-          set({ teams, rounds: bracket, selectedMatchId: null });
+          const brackets = generateBracket(teams, settings.bracketType);
+          set({ 
+            teams, 
+            brackets, 
+            activeBracketId: brackets[0]?.id ?? null,
+            selectedMatchId: null 
+          });
         },
         resetBracket: () => {
           const { settings } = get();
           const teams = generateInitialTeams(settings.numTeams);
-          const bracket = generateBracket(teams, settings.bracketType);
-          set({ teams, rounds: bracket, selectedMatchId: null });
+          const brackets = generateBracket(teams, settings.bracketType);
+          set({ 
+            teams, 
+            brackets, 
+            activeBracketId: brackets[0]?.id ?? null,
+            selectedMatchId: null 
+          });
         },
         addTeam: (team) => {
           const { teams } = get();
@@ -221,14 +255,23 @@ export const useBracketStore = create<BracketStore>()(
           set({ selectedMatchId: matchId });
         },
         getMatchById: (matchId) => {
-          const { rounds } = get();
-          for (const round of rounds) {
-            const found = round.matches.find((match) => match.id === matchId);
-            if (found) {
-              return found;
+          const { brackets } = get();
+          for (const bracket of brackets) {
+            for (const round of bracket.rounds) {
+              const found = round.matches.find((match) => match.id === matchId);
+              if (found) {
+                return found;
+              }
             }
           }
           return undefined;
+        },
+        setActiveBracket: (bracketId) => {
+          set({ activeBracketId: bracketId });
+        },
+        getActiveBracket: () => {
+          const { brackets, activeBracketId } = get();
+          return brackets.find(b => b.id === activeBracketId);
         },
       };
     },

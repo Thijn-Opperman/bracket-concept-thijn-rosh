@@ -4,18 +4,31 @@ import type {
   Match,
   BracketType,
   MatchDetails,
+  BracketGroup,
 } from '@/app/types/bracket';
 
-export function generateBracket(teams: Team[], type: BracketType): Round[] {
+export function generateBracket(teams: Team[], type: BracketType): BracketGroup[] {
   switch (type) {
     case 'single-elimination':
-      return generateSingleElimination(teams);
+      return [{
+        id: 'main',
+        name: 'Hoofdbracket',
+        rounds: generateSingleElimination(teams),
+      }];
     case 'double-elimination':
       return generateDoubleElimination(teams);
     case 'round-robin':
-      return generateRoundRobin(teams);
+      return [{
+        id: 'main',
+        name: 'Hoofdbracket',
+        rounds: generateRoundRobin(teams),
+      }];
     default:
-      return generateSingleElimination(teams);
+      return [{
+        id: 'main',
+        name: 'Hoofdbracket',
+        rounds: generateSingleElimination(teams),
+      }];
   }
 }
 
@@ -77,16 +90,68 @@ function generateSingleElimination(teams: Team[]): Round[] {
   return rounds;
 }
 
-function generateDoubleElimination(teams: Team[]): Round[] {
-  // Start with single elimination
-  const winnersBracket = generateSingleElimination(teams);
+function generateDoubleElimination(teams: Team[]): BracketGroup[] {
+  // Generate winners bracket
+  const winnersRounds = generateSingleElimination(teams);
   
-  // Create losers bracket (simplified - full double elimination is complex)
+  // Generate losers bracket
+  // Losers bracket has a different structure - teams that lose go here
+  const numRounds = Math.ceil(Math.log2(teams.length));
   const losersRounds: Round[] = [];
   
-  // For now, return winners bracket with a note that losers bracket would be added
-  // Full double elimination implementation would require tracking losers from each round
-  return winnersBracket;
+  // Losers bracket typically has 2*(n-1) rounds where n is number of teams
+  // Simplified version: create rounds for losers
+  for (let i = 0; i < numRounds * 2 - 1; i++) {
+    const roundName = i === 0 ? 'Losers Ronde 1' : 
+                     i === numRounds * 2 - 2 ? 'Losers Finale' :
+                     `Losers Ronde ${i + 1}`;
+    
+    // Calculate number of matches for this losers round
+    // This is simplified - real double elimination is more complex
+    const matchesPerRound = Math.max(1, Math.floor(teams.length / Math.pow(2, Math.floor(i / 2) + 1)));
+    
+    const matches: Match[] = [];
+    for (let j = 0; j < matchesPerRound; j++) {
+      const startTime = getMatchStartTime(i, j);
+      const court = getCourtName(i, j);
+      matches.push({
+        id: `losers-r${i}-m${j}`,
+        roundIndex: i,
+        matchIndex: j,
+        teams: [null, null], // Will be filled when teams lose
+        startTime,
+        court,
+        details: createDefaultMatchDetails({
+          matchId: `losers-r${i}-m${j}`,
+          roundName,
+          startTime,
+          court,
+          teamA: null,
+          teamB: null,
+        }),
+      });
+    }
+    
+    if (matches.length > 0) {
+      losersRounds.push({
+        name: roundName,
+        matches,
+      });
+    }
+  }
+  
+  return [
+    {
+      id: 'winners',
+      name: 'Winners Bracket',
+      rounds: winnersRounds,
+    },
+    {
+      id: 'losers',
+      name: 'Losers Bracket',
+      rounds: losersRounds,
+    },
+  ];
 }
 
 function generateRoundRobin(teams: Team[]): Round[] {

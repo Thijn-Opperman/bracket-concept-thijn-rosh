@@ -1,7 +1,7 @@
 'use client';
 
 import { useBracketStore } from '@/app/store/bracketStore';
-import type { BracketStyle, Theme, AnimationSpeed, BracketType } from '@/app/types/bracket';
+import type { AnimationSpeed, BracketType } from '@/app/types/bracket';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
 
@@ -9,17 +9,6 @@ export default function SettingsPanel() {
   const { settings, setSettings, resetBracket } = useBracketStore();
   const [isOpen, setIsOpen] = useState(true);
 
-  const bracketStyles: { value: BracketStyle; label: string }[] = [
-    { value: 'classic', label: 'Klassiek' },
-    { value: 'modern', label: 'Modern' },
-    { value: 'playful', label: 'Speels' },
-  ];
-
-  const themes: { value: Theme; label: string }[] = [
-    { value: 'retro', label: 'Retro' },
-    { value: 'futuristic', label: 'Futuristisch' },
-    { value: 'sporty', label: 'Sportief' },
-  ];
 
   const animationSpeeds: { value: AnimationSpeed; label: string }[] = [
     { value: 'slow', label: 'Traag' },
@@ -27,10 +16,34 @@ export default function SettingsPanel() {
     { value: 'fast', label: 'Snel' },
   ];
 
-  const bracketTypes: { value: BracketType; label: string }[] = [
-    { value: 'single-elimination', label: 'Single Elimination' },
-    { value: 'double-elimination', label: 'Double Elimination' },
-    { value: 'round-robin', label: 'Round Robin' },
+  const bracketTypes: { 
+    value: BracketType; 
+    label: string; 
+    description: string; 
+    icon: string;
+    features: string[];
+  }[] = [
+    { 
+      value: 'single-elimination', 
+      label: 'Single Elimination',
+      description: 'Winnaar gaat door, verliezer is uit. Eén misstap en je ligt eruit.',
+      icon: '⚔️',
+      features: ['Eén verlies = uitgeschakeld', 'Snelle toernooien', 'Klassieke bracket structuur']
+    },
+    { 
+      value: 'double-elimination', 
+      label: 'Double Elimination',
+      description: 'Tweede kansen bestaan. Verliezers gaan naar de losers bracket.',
+      icon: '🔄',
+      features: ['Tweede kans voor verliezers', 'Losers bracket', 'Meer wedstrijden']
+    },
+    { 
+      value: 'round-robin', 
+      label: 'Round Robin',
+      description: 'Iedereen speelt tegen iedereen. Consistentie beslist de winnaar.',
+      icon: '🎯',
+      features: ['Alle teams spelen elkaar', 'Meeste punten wint', 'Eerlijkste competitie']
+    },
   ];
 
   const speedMap = {
@@ -44,11 +57,13 @@ export default function SettingsPanel() {
       {/* Mobile toggle button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed left-4 top-4 z-50 rounded-lg bg-white/10 p-3 backdrop-blur-md lg:hidden"
+        className="fixed left-4 top-4 z-50 rounded-lg p-3 backdrop-blur-md lg:hidden"
+        style={{ backgroundColor: '#1A2335', borderColor: '#2D3E5A' }}
         aria-label="Toggle settings"
       >
         <svg
-          className="h-6 w-6 text-white"
+          className="h-6 w-6"
+          style={{ color: '#F2F1EF' }}
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -75,17 +90,22 @@ export default function SettingsPanel() {
             animate={{ x: 0 }}
             exit={{ x: -400 }}
             transition={{ duration: speedMap[settings.animationSpeed] }}
-            className="fixed left-0 top-0 z-40 h-full w-72 overflow-y-auto border-r border-white/10 bg-black/90 p-4 backdrop-blur-md sm:w-80 sm:p-6 lg:relative lg:z-auto lg:h-auto lg:border-r lg:border-white/10"
+            className="fixed left-0 top-0 z-40 h-full w-72 overflow-y-auto border-r p-4 backdrop-blur-md sm:w-80 sm:p-6 lg:relative lg:z-auto lg:h-auto lg:border-r"
+            style={{
+              borderColor: '#2D3E5A',
+              backgroundColor: '#1A2335',
+            }}
           >
             <div className="mb-6 flex items-center justify-between">
-              <h2 className="text-xl font-bold text-white">Instellingen</h2>
+              <h2 className="text-xl font-bold" style={{ color: '#F2F1EF' }}>Instellingen</h2>
               <button
                 onClick={() => setIsOpen(false)}
                 className="lg:hidden"
                 aria-label="Close settings"
               >
                 <svg
-                  className="h-6 w-6 text-white"
+                  className="h-6 w-6"
+          style={{ color: '#F2F1EF' }}
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -103,27 +123,48 @@ export default function SettingsPanel() {
             <div className="space-y-6">
               {/* Bracket Type */}
               <div>
-                <label className="mb-2 block text-sm font-medium text-white">
+                <label className="mb-4 block text-sm font-medium" style={{ color: '#F2F1EF' }}>
                   Bracket Type
                 </label>
-                <select
-                  value={settings.bracketType}
-                  onChange={(e) =>
-                    setSettings({ bracketType: e.target.value as BracketType })
-                  }
-                  className="w-full rounded-lg border border-white/20 bg-white/5 px-4 py-2 text-white focus:border-white/40 focus:outline-none"
-                >
+                <div className="space-y-3">
                   {bracketTypes.map((type) => (
-                    <option key={type.value} value={type.value}>
-                      {type.label}
-                    </option>
+                    <button
+                      key={type.value}
+                      onClick={() => setSettings({ bracketType: type.value })}
+                      className={`w-full rounded-xl border-2 p-4 text-left transition-all ${
+                        settings.bracketType === type.value
+                          ? 'border-[#482CFF] bg-[#482CFF]/20 shadow-lg shadow-[#482CFF]/20'
+                          : 'border-[#2D3E5A] bg-[#1A2335] hover:border-[#482CFF]/50 hover:bg-[#1A2335]/80'
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="text-2xl">{type.icon}</div>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between mb-1">
+                            <h3 className="font-bold" style={{ color: '#F2F1EF' }}>{type.label}</h3>
+                            {settings.bracketType === type.value && (
+                              <div className="h-2 w-2 rounded-full bg-[#482CFF]" />
+                            )}
+                          </div>
+                          <p className="text-xs mb-2" style={{ color: '#F2F1EF', opacity: 0.8 }}>{type.description}</p>
+                          <ul className="space-y-1">
+                            {type.features.map((feature, idx) => (
+                              <li key={idx} className="text-xs flex items-center gap-2" style={{ color: '#F2F1EF', opacity: 0.7 }}>
+                                <span className="text-[#482CFF]">•</span>
+                                {feature}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    </button>
                   ))}
-                </select>
+                </div>
               </div>
 
               {/* Number of Teams */}
               <div>
-                <label className="mb-2 block text-sm font-medium text-white">
+                <label className="mb-2 block text-sm font-medium" style={{ color: '#F2F1EF' }}>
                   Aantal Teams: {settings.numTeams}
                 </label>
                 <input
@@ -137,7 +178,7 @@ export default function SettingsPanel() {
                   }
                   className="w-full"
                 />
-                <div className="mt-1 flex justify-between text-xs text-white/60">
+                <div className="mt-1 flex justify-between text-xs" style={{ color: '#F2F1EF', opacity: 0.7 }}>
                   <span>4</span>
                   <span>32</span>
                 </div>
@@ -145,7 +186,7 @@ export default function SettingsPanel() {
 
               {/* Primary Color */}
               <div>
-                <label className="mb-2 block text-sm font-medium text-white">
+                <label className="mb-2 block text-sm font-medium" style={{ color: '#F2F1EF' }}>
                   Primaire Kleur
                 </label>
                 <div className="flex gap-2">
@@ -155,7 +196,8 @@ export default function SettingsPanel() {
                     onChange={(e) =>
                       setSettings({ primaryColor: e.target.value })
                     }
-                    className="h-10 w-20 cursor-pointer rounded-lg border border-white/20"
+                    className="h-10 w-20 cursor-pointer rounded-lg border"
+                    style={{ borderColor: '#2D3E5A' }}
                   />
                   <input
                     type="text"
@@ -163,14 +205,21 @@ export default function SettingsPanel() {
                     onChange={(e) =>
                       setSettings({ primaryColor: e.target.value })
                     }
-                    className="flex-1 rounded-lg border border-white/20 bg-white/5 px-4 py-2 text-white focus:border-white/40 focus:outline-none"
+                    className="flex-1 rounded-lg border px-4 py-2 focus:outline-none"
+                    style={{
+                      borderColor: '#2D3E5A',
+                      backgroundColor: '#111827',
+                      color: '#F2F1EF',
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = '#482CFF'}
+                    onBlur={(e) => e.target.style.borderColor = '#2D3E5A'}
                   />
                 </div>
               </div>
 
               {/* Secondary Color */}
               <div>
-                <label className="mb-2 block text-sm font-medium text-white">
+                <label className="mb-2 block text-sm font-medium" style={{ color: '#F2F1EF' }}>
                   Secundaire Kleur
                 </label>
                 <div className="flex gap-2">
@@ -180,7 +229,8 @@ export default function SettingsPanel() {
                     onChange={(e) =>
                       setSettings({ secondaryColor: e.target.value })
                     }
-                    className="h-10 w-20 cursor-pointer rounded-lg border border-white/20"
+                    className="h-10 w-20 cursor-pointer rounded-lg border"
+                    style={{ borderColor: '#2D3E5A' }}
                   />
                   <input
                     type="text"
@@ -188,14 +238,21 @@ export default function SettingsPanel() {
                     onChange={(e) =>
                       setSettings({ secondaryColor: e.target.value })
                     }
-                    className="flex-1 rounded-lg border border-white/20 bg-white/5 px-4 py-2 text-white focus:border-white/40 focus:outline-none"
+                    className="flex-1 rounded-lg border px-4 py-2 focus:outline-none"
+                    style={{
+                      borderColor: '#2D3E5A',
+                      backgroundColor: '#111827',
+                      color: '#F2F1EF',
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = '#482CFF'}
+                    onBlur={(e) => e.target.style.borderColor = '#2D3E5A'}
                   />
                 </div>
               </div>
 
               {/* Background Color */}
               <div>
-                <label className="mb-2 block text-sm font-medium text-white">
+                <label className="mb-2 block text-sm font-medium" style={{ color: '#F2F1EF' }}>
                   Achtergrond Kleur
                 </label>
                 <div className="flex gap-2">
@@ -205,7 +262,8 @@ export default function SettingsPanel() {
                     onChange={(e) =>
                       setSettings({ backgroundColor: e.target.value })
                     }
-                    className="h-10 w-20 cursor-pointer rounded-lg border border-white/20"
+                    className="h-10 w-20 cursor-pointer rounded-lg border"
+                    style={{ borderColor: '#2D3E5A' }}
                   />
                   <input
                     type="text"
@@ -213,58 +271,21 @@ export default function SettingsPanel() {
                     onChange={(e) =>
                       setSettings({ backgroundColor: e.target.value })
                     }
-                    className="flex-1 rounded-lg border border-white/20 bg-white/5 px-4 py-2 text-white focus:border-white/40 focus:outline-none"
+                    className="flex-1 rounded-lg border px-4 py-2 focus:outline-none"
+                    style={{
+                      borderColor: '#2D3E5A',
+                      backgroundColor: '#111827',
+                      color: '#F2F1EF',
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = '#482CFF'}
+                    onBlur={(e) => e.target.style.borderColor = '#2D3E5A'}
                   />
-                </div>
-              </div>
-
-              {/* Bracket Style */}
-              <div>
-                <label className="mb-2 block text-sm font-medium text-white">
-                  Bracket Stijl
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {bracketStyles.map((style) => (
-                    <button
-                      key={style.value}
-                      onClick={() => setSettings({ bracketStyle: style.value })}
-                      className={`rounded-lg border px-3 py-2 text-sm transition-colors ${
-                        settings.bracketStyle === style.value
-                          ? 'border-white/40 bg-white/10 text-white'
-                          : 'border-white/20 bg-white/5 text-white/70 hover:border-white/30'
-                      }`}
-                    >
-                      {style.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Theme */}
-              <div>
-                <label className="mb-2 block text-sm font-medium text-white">
-                  Thema
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {themes.map((theme) => (
-                    <button
-                      key={theme.value}
-                      onClick={() => setSettings({ theme: theme.value })}
-                      className={`rounded-lg border px-3 py-2 text-sm transition-colors ${
-                        settings.theme === theme.value
-                          ? 'border-white/40 bg-white/10 text-white'
-                          : 'border-white/20 bg-white/5 text-white/70 hover:border-white/30'
-                      }`}
-                    >
-                      {theme.label}
-                    </button>
-                  ))}
                 </div>
               </div>
 
               {/* Animation Speed */}
               <div>
-                <label className="mb-2 block text-sm font-medium text-white">
+                <label className="mb-2 block text-sm font-medium" style={{ color: '#F2F1EF' }}>
                   Animatie Snelheid
                 </label>
                 <div className="grid grid-cols-3 gap-2">
@@ -276,9 +297,12 @@ export default function SettingsPanel() {
                       }
                       className={`rounded-lg border px-3 py-2 text-sm transition-colors ${
                         settings.animationSpeed === speed.value
-                          ? 'border-white/40 bg-white/10 text-white'
-                          : 'border-white/20 bg-white/5 text-white/70 hover:border-white/30'
+                          ? 'border-[#482CFF] bg-[#482CFF]/20'
+                          : 'border-[#2D3E5A] bg-[#1A2335] hover:border-[#482CFF]/50'
                       }`}
+                      style={{
+                        color: '#F2F1EF',
+                      }}
                     >
                       {speed.label}
                     </button>
@@ -289,7 +313,7 @@ export default function SettingsPanel() {
               {/* Toggles */}
               <div className="space-y-3">
                 <label className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-white">
+                  <span className="text-sm font-medium" style={{ color: '#F2F1EF' }}>
                     Donkere Modus
                   </span>
                   <input
@@ -303,7 +327,7 @@ export default function SettingsPanel() {
                 </label>
 
                 <label className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-white">
+                  <span className="text-sm font-medium" style={{ color: '#F2F1EF' }}>
                     Confetti Effect
                   </span>
                   <input
@@ -317,7 +341,7 @@ export default function SettingsPanel() {
                 </label>
 
                 <label className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-white">
+                  <span className="text-sm font-medium" style={{ color: '#F2F1EF' }}>
                     Geluidseffecten
                   </span>
                   <input

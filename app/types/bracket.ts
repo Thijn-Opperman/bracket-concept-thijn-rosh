@@ -76,8 +76,15 @@ export type BracketSettings = {
   enableConfetti: boolean;
 };
 
-export type BracketState = {
+export type BracketGroup = {
+  id: string;
+  name: string;
   rounds: Round[];
+};
+
+export type BracketState = {
+  brackets: BracketGroup[];
+  activeBracketId: string | null;
   teams: Team[];
   settings: BracketSettings;
   selectedMatchId: string | null;

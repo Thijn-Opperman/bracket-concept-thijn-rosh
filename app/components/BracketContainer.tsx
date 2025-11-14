@@ -7,7 +7,9 @@ import MatchDetailsPanel from './MatchDetailsPanel';
 import { useMemo } from 'react';
 
 export default function BracketContainer() {
-  const { rounds, settings, teams, selectedMatchId } = useBracketStore();
+  const { brackets, activeBracketId, settings, teams, selectedMatchId, setActiveBracket, getActiveBracket } = useBracketStore();
+  const activeBracket = getActiveBracket();
+  const rounds = activeBracket?.rounds ?? [];
   const speedMap = {
     slow: 0.6,
     normal: 0.3,
@@ -146,17 +148,40 @@ export default function BracketContainer() {
           </div>
         </div>
 
-        <div 
-          className="flex items-center gap-3 text-xs uppercase tracking-[0.3em]"
-          style={{ color: '#F2F1EF' }}
-        >
-          <div
-            className="h-2 w-12 rounded-full"
-            style={{
-              backgroundImage: `linear-gradient(90deg, ${settings.primaryColor}, ${settings.secondaryColor})`,
-            }}
-          />
-          Live bracket overview
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div 
+            className="flex items-center gap-3 text-xs uppercase tracking-[0.3em]"
+            style={{ color: '#F2F1EF' }}
+          >
+            <div
+              className="h-2 w-12 rounded-full"
+              style={{
+                backgroundImage: `linear-gradient(90deg, ${settings.primaryColor}, ${settings.secondaryColor})`,
+              }}
+            />
+            Live bracket overview
+          </div>
+          
+          {brackets.length > 1 && (
+            <div className="flex gap-2 flex-wrap">
+              {brackets.map((bracket) => (
+                <button
+                  key={bracket.id}
+                  onClick={() => setActiveBracket(bracket.id)}
+                  className={`rounded-lg border-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-all ${
+                    activeBracketId === bracket.id
+                      ? 'border-[#482CFF] bg-[#482CFF]/20 shadow-lg shadow-[#482CFF]/20'
+                      : 'border-[#2D3E5A] bg-[#1A2335] hover:border-[#482CFF]/50'
+                  }`}
+                  style={{
+                    color: '#F2F1EF',
+                  }}
+                >
+                  {bracket.name}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Bracket Container */}
