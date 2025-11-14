@@ -22,7 +22,7 @@ export default function Home() {
       className="flex min-h-screen"
       style={{
         backgroundColor: settings.backgroundColor,
-        color: settings.darkMode ? '#ffffff' : '#000000',
+        color: '#F2F1EF',
       }}
     >
       <SettingsPanel />

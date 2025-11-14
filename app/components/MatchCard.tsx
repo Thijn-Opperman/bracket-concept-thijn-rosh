@@ -6,6 +6,7 @@ import TeamSlot from './TeamSlot';
 import { useBracketStore } from '@/app/store/bracketStore';
 import confetti from 'canvas-confetti';
 import type { MouseEvent } from 'react';
+import { useMemo } from 'react';
 
 interface MatchCardProps {
   match: Match;
@@ -13,7 +14,34 @@ interface MatchCardProps {
 }
 
 export default function MatchCard({ match, roundIndex }: MatchCardProps) {
-  const { settings, setWinner, setSelectedMatch } = useBracketStore();
+  const { settings, setWinner, setSelectedMatch, rounds } = useBracketStore();
+  
+  // Find the next match for the winner
+  const nextMatch = useMemo(() => {
+    if (match.winnerIndex === undefined || roundIndex >= rounds.length - 1) {
+      return null;
+    }
+    
+    const nextRound = rounds[roundIndex + 1];
+    if (!nextRound) return null;
+    
+    // Calculate which match in the next round this winner goes to
+    const nextMatchIndex = Math.floor(match.matchIndex / 2);
+    const nextMatch = nextRound.matches[nextMatchIndex];
+    
+    if (!nextMatch) return null;
+    
+    // Find which opponent the winner will face
+    const winnerSlot = match.matchIndex % 2;
+    const opponentSlot = winnerSlot === 0 ? 1 : 0;
+    const opponent = nextMatch.teams[opponentSlot];
+    
+    return {
+      match: nextMatch,
+      opponent: opponent,
+      opponentSlot: opponentSlot,
+    };
+  }, [match, roundIndex, rounds]);
   const speedMap = {
     slow: 0.6,
     normal: 0.3,
@@ -60,13 +88,38 @@ export default function MatchCard({ match, roundIndex }: MatchCardProps) {
   const getStyleClasses = () => {
     switch (settings.bracketStyle) {
       case 'classic':
-        return 'border-2 border-white/20 bg-gradient-to-br from-white/10 via-white/5 to-transparent';
+        return 'border-2 backdrop-blur-sm';
       case 'modern':
-        return 'border border-white/10 bg-gradient-to-br from-white/10/40 to-white/5 backdrop-blur-sm';
+        return 'border backdrop-blur-sm';
       case 'playful':
-        return 'border-2 border-dashed border-white/20 bg-gradient-to-br from-white/20 via-white/10 to-white/5 shadow-lg shadow-black/40';
+        return 'border-2 border-dashed shadow-lg shadow-black/40';
       default:
-        return 'border border-white/10 bg-white/10';
+        return 'border';
+    }
+  };
+
+  const getStyleColors = () => {
+    switch (settings.bracketStyle) {
+      case 'classic':
+        return {
+          borderColor: '#2D3E5A',
+          background: `linear-gradient(135deg, #1A2335 0%, #111827 100%)`,
+        };
+      case 'modern':
+        return {
+          borderColor: '#2D3E5A',
+          background: `linear-gradient(135deg, rgba(26, 35, 53, 0.8) 0%, rgba(17, 24, 39, 0.6) 100%)`,
+        };
+      case 'playful':
+        return {
+          borderColor: '#2D3E5A',
+          background: `linear-gradient(135deg, #1A2335 0%, #2D3E5A 100%)`,
+        };
+      default:
+        return {
+          borderColor: '#2D3E5A',
+          backgroundColor: '#1A2335',
+        };
     }
   };
 
@@ -90,9 +143,17 @@ export default function MatchCard({ match, roundIndex }: MatchCardProps) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: speedMap[settings.animationSpeed] }}
-      className={`relative overflow-hidden rounded-2xl p-5 shadow-xl shadow-black/20 ${getStyleClasses()} ${getThemeClasses()}`}
+      className={`relative overflow-hidden rounded-2xl p-5 shadow-xl shadow-black/20 transition-all duration-300 ${getStyleClasses()} ${getThemeClasses()} ${
+        match.winnerIndex !== undefined 
+          ? 'ring-2 ring-offset-2 ring-offset-transparent' 
+          : 'hover:shadow-2xl hover:shadow-black/30'
+      }`}
       style={{
-        borderColor: match.winnerIndex !== undefined ? settings.primaryColor : undefined,
+        ...getStyleColors(),
+        ...(match.winnerIndex !== undefined && {
+          borderColor: settings.primaryColor,
+          ringColor: settings.primaryColor,
+        }),
       }}
       onClick={openDetails}
       role="button"
@@ -111,23 +172,57 @@ export default function MatchCard({ match, roundIndex }: MatchCardProps) {
           backgroundImage: `linear-gradient(90deg, ${settings.primaryColor}, ${accentColor})`,
         }}
       />
-      <div className="mb-4 flex items-start justify-between gap-3 text-xs text-white/70">
+      {match.winnerIndex !== undefined && (
+        <motion.div
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          className="absolute top-2 right-2"
+        >
+          <div 
+            className="flex h-8 w-8 items-center justify-center rounded-full shadow-lg"
+            style={{
+              backgroundColor: settings.primaryColor,
+            }}
+          >
+            <svg
+              className="h-5 w-5 text-white"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={3}
+                d="M5 13l4 4L19 7"
+              />
+            </svg>
+          </div>
+        </motion.div>
+      )}
+      <div className="mb-4 flex items-start justify-between gap-3 text-xs" style={{ color: '#F2F1EF', opacity: 0.8 }}>
         <div className="space-y-1">
-          <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 font-semibold tracking-wide text-white">
+          <span 
+            className="inline-flex items-center gap-2 rounded-full px-3 py-1 font-semibold tracking-wide"
+            style={{ 
+              backgroundColor: '#2D3E5A',
+              color: '#F2F1EF',
+            }}
+          >
             <span className="h-2 w-2 rounded-full" style={{ backgroundColor: accentColor }} />
             {match.id.toUpperCase()}
           </span>
-          <div className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-widest text-white/50">
+          <div className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-widest" style={{ color: '#F2F1EF', opacity: 0.6 }}>
             <span>{match.details?.title ?? `Ronde ${roundIndex + 1}`}</span>
             {match.startTime && (
               <>
-                <span className="text-white/20">•</span>
+                <span style={{ color: '#F2F1EF', opacity: 0.3 }}>•</span>
                 <span>{match.startTime}</span>
               </>
             )}
             {match.court && (
               <>
-                <span className="text-white/20">•</span>
+                <span style={{ color: '#F2F1EF', opacity: 0.3 }}>•</span>
                 <span>{match.court}</span>
               </>
             )}
@@ -136,7 +231,20 @@ export default function MatchCard({ match, roundIndex }: MatchCardProps) {
         <button
           type="button"
           onClick={(event) => openDetails(event)}
-          className="flex items-center gap-1 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-white/80 transition hover:border-white/40 hover:bg-white/20"
+          className="flex items-center gap-1 rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-widest transition"
+          style={{
+            borderColor: '#2D3E5A',
+            backgroundColor: '#1A2335',
+            color: '#F2F1EF',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = '#482CFF';
+            e.currentTarget.style.backgroundColor = '#2D3E5A';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = '#2D3E5A';
+            e.currentTarget.style.backgroundColor = '#1A2335';
+          }}
         >
           <svg
             className="h-3.5 w-3.5"
@@ -156,7 +264,15 @@ export default function MatchCard({ match, roundIndex }: MatchCardProps) {
       </div>
 
       {match.details?.subtitle && (
-        <div className="mb-4 rounded-xl border border-white/10 bg-white/10 p-3 text-center text-sm text-white/80">
+        <div 
+          className="mb-4 rounded-xl border p-3 text-center text-sm"
+          style={{
+            borderColor: '#2D3E5A',
+            backgroundColor: '#1A2335',
+            color: '#F2F1EF',
+            opacity: 0.9,
+          }}
+        >
           {match.details.subtitle}
         </div>
       )}
@@ -171,8 +287,18 @@ export default function MatchCard({ match, roundIndex }: MatchCardProps) {
           onSelect={() => handleWinnerSelect(0)}
         />
         
-        <div className="flex items-center justify-center py-1">
-          <span className="text-xs text-white/40">VS</span>
+        <div className="relative flex items-center justify-center py-2">
+          <div className="absolute inset-x-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+          <span 
+            className="relative rounded-full border-2 px-4 py-1 text-xs font-bold uppercase tracking-widest backdrop-blur-sm"
+            style={{
+              borderColor: settings.secondaryColor,
+              backgroundColor: `${settings.secondaryColor}20`,
+              color: settings.secondaryColor,
+            }}
+          >
+            VS
+          </span>
         </div>
         
         <TeamSlot
@@ -187,12 +313,106 @@ export default function MatchCard({ match, roundIndex }: MatchCardProps) {
 
       {match.winnerIndex !== undefined && (
         <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="mt-4 rounded-full bg-white/10 px-4 py-2 text-center text-xs font-semibold tracking-widest uppercase"
-          style={{ color: settings.primaryColor }}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="mt-4 space-y-3"
         >
-          Winnaar: {match.teams[match.winnerIndex]?.name}
+          <div className="rounded-xl border-2 px-4 py-3 text-center"
+            style={{ 
+              borderColor: settings.primaryColor,
+              backgroundColor: `${settings.primaryColor}15`,
+            }}
+          >
+            <div className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#F2F1EF', opacity: 0.7 }}>
+              Winnaar
+            </div>
+            <div className="flex items-center justify-center gap-2">
+              <div 
+                className="text-base font-bold"
+                style={{ color: settings.primaryColor }}
+              >
+                {match.teams[match.winnerIndex]?.name}
+              </div>
+              {match.teams[match.winnerIndex]?.score !== undefined && (
+                <span 
+                  className="text-sm font-bold rounded-full px-2 py-0.5"
+                  style={{ 
+                    backgroundColor: settings.primaryColor,
+                    color: 'white'
+                  }}
+                >
+                  {match.teams[match.winnerIndex]?.score}
+                </span>
+              )}
+            </div>
+            {(match.teams[0]?.score !== undefined || match.teams[1]?.score !== undefined) && (
+              <div className="mt-2 text-xs" style={{ color: '#F2F1EF', opacity: 0.7 }}>
+                {match.teams[0]?.score ?? 0} - {match.teams[1]?.score ?? 0}
+              </div>
+            )}
+          </div>
+          
+          {nextMatch && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.3 }}
+              className="rounded-xl border-2 px-4 py-3"
+              style={{ 
+                borderColor: settings.secondaryColor,
+                backgroundColor: `${settings.secondaryColor}20`,
+              }}
+            >
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  style={{ color: settings.secondaryColor }}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 7l5 5m0 0l-5 5m5-5H6"
+                  />
+                </svg>
+                <span 
+                  className="text-xs font-semibold uppercase tracking-widest"
+                  style={{ color: settings.secondaryColor }}
+                >
+                  Volgende tegenstander
+                </span>
+              </div>
+              {nextMatch.opponent ? (
+                <div className="text-center">
+                  <div 
+                    className="text-lg font-bold mb-1"
+                    style={{ color: settings.secondaryColor }}
+                  >
+                    {nextMatch.opponent.name}
+                  </div>
+                  <div className="text-xs" style={{ color: '#F2F1EF', opacity: 0.7 }}>
+                    in {rounds[roundIndex + 1]?.name}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center">
+                  <div 
+                    className="text-sm font-semibold"
+                    style={{ color: settings.secondaryColor }}
+                  >
+                    Wacht op tegenstander
+                  </div>
+                  <div className="text-xs mt-1" style={{ color: '#F2F1EF', opacity: 0.7 }}>
+                    in {rounds[roundIndex + 1]?.name}
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          )}
         </motion.div>
       )}
 

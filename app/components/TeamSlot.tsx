@@ -43,7 +43,15 @@ export default function TeamSlot({
 
   if (!team) {
     return (
-      <div className="flex h-12 items-center rounded-lg border border-dashed border-white/10 bg-white/5 px-3 text-sm text-white/40">
+      <div 
+        className="flex h-12 items-center rounded-lg border border-dashed px-3 text-sm"
+        style={{
+          borderColor: '#2D3E5A',
+          backgroundColor: '#1A2335',
+          color: '#F2F1EF',
+          opacity: 0.5,
+        }}
+      >
         <span>—</span>
       </div>
     );
@@ -59,15 +67,13 @@ export default function TeamSlot({
       whileTap={isClickable ? { scale: 0.98 } : {}}
       onClick={handleClick}
       className={`group relative flex h-12 cursor-pointer items-center justify-between rounded-lg border px-3 transition-all ${
-        isWinner
-          ? 'border-white/40 bg-white/10 shadow-lg'
-          : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10'
-      } ${isClickable ? 'cursor-pointer' : 'cursor-default'}`}
+        isClickable ? 'cursor-pointer' : 'cursor-default'
+      }`}
       style={{
-        borderColor: isWinner ? settings.primaryColor : undefined,
+        borderColor: isWinner ? settings.primaryColor : '#2D3E5A',
         backgroundColor: isWinner
           ? `${settings.primaryColor}20`
-          : undefined,
+          : '#1A2335',
       }}
     >
       <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -79,9 +85,8 @@ export default function TeamSlot({
           />
         )}
         <span
-          className={`truncate font-medium ${
-            isWinner ? 'text-white' : 'text-white/90'
-          }`}
+          className="truncate font-medium"
+          style={{ color: '#F2F1EF' }}
         >
           {team.name}
         </span>
@@ -91,21 +96,36 @@ export default function TeamSlot({
         <input
           type="number"
           min="0"
+          max="999"
           value={team.score ?? ''}
           onChange={handleScoreChange}
           onClick={(e) => e.stopPropagation()}
+          onFocus={(e) => e.stopPropagation()}
           placeholder="0"
-          className="h-7 w-12 rounded border border-white/20 bg-black/30 px-2 text-center text-sm text-white focus:border-white/40 focus:outline-none"
+          title="Voer punten in"
+          className="h-8 w-16 rounded-lg border-2 px-2 text-center text-sm font-bold transition-all focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-offset-transparent"
+          style={{
+            borderColor: '#2D3E5A',
+            backgroundColor: '#111827',
+            color: '#F2F1EF',
+            '--tw-ring-color': settings.secondaryColor,
+          } as React.CSSProperties}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = '#482CFF';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = '#2D3E5A';
+          }}
         />
         {isWinner && (
           <motion.div
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
-            className="flex h-5 w-5 items-center justify-center rounded-full"
+            className="flex h-6 w-6 items-center justify-center rounded-full shadow-lg"
             style={{ backgroundColor: settings.primaryColor }}
           >
             <svg
-              className="h-3 w-3 text-white"
+              className="h-4 w-4 text-white"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"

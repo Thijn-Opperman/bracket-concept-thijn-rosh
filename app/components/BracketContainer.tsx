@@ -4,15 +4,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useBracketStore } from '@/app/store/bracketStore';
 import MatchCard from './MatchCard';
 import MatchDetailsPanel from './MatchDetailsPanel';
-import {
-  exportBracketAsImage,
-  exportBracketAsPDF,
-} from '@/app/utils/exportUtils';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 export default function BracketContainer() {
   const { rounds, settings, teams, selectedMatchId } = useBracketStore();
-  const [isExporting, setIsExporting] = useState(false);
   const speedMap = {
     slow: 0.6,
     normal: 0.3,
@@ -33,45 +28,21 @@ export default function BracketContainer() {
     };
   }, [rounds]);
 
-  const handleExportImage = async () => {
-    setIsExporting(true);
-    try {
-      await exportBracketAsImage('bracket-container', 'png');
-    } catch (error) {
-      console.error('Export failed:', error);
-      alert('Export mislukt. Probeer het opnieuw.');
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  const handleExportPDF = async () => {
-    setIsExporting(true);
-    try {
-      await exportBracketAsPDF('bracket-container');
-    } catch (error) {
-      console.error('Export failed:', error);
-      alert('Export mislukt. Probeer het opnieuw.');
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
   const getThemeStyles = () => {
     switch (settings.theme) {
       case 'retro':
         return {
-          background: `linear-gradient(135deg, ${settings.backgroundColor} 0%, #1a1a2e 100%)`,
+          background: `linear-gradient(135deg, ${settings.backgroundColor} 0%, #1A2335 100%)`,
           fontFamily: 'monospace',
         };
       case 'futuristic':
         return {
-          background: `linear-gradient(135deg, ${settings.backgroundColor} 0%, #0a0a1a 100%)`,
+          background: `linear-gradient(135deg, ${settings.backgroundColor} 0%, #1A2335 100%)`,
           fontFamily: 'sans-serif',
         };
       case 'sporty':
         return {
-          background: `linear-gradient(135deg, ${settings.backgroundColor} 0%, #1a1a1a 100%)`,
+          background: `linear-gradient(135deg, ${settings.backgroundColor} 0%, #1A2335 100%)`,
           fontFamily: 'Arial, sans-serif',
         };
       default:
@@ -87,7 +58,13 @@ export default function BracketContainer() {
       style={getThemeStyles()}
     >
       <div className="mx-auto max-w-7xl space-y-8">
-        <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-black/40 p-6 sm:p-8">
+        <div 
+          className="relative overflow-hidden rounded-3xl border p-6 sm:p-8"
+          style={{
+            borderColor: '#2D3E5A',
+            backgroundColor: '#1A2335',
+          }}
+        >
           <motion.div
             aria-hidden="true"
             className="pointer-events-none absolute inset-0 opacity-70"
@@ -112,46 +89,37 @@ export default function BracketContainer() {
                   'Iedereen speelt tegen iedereen. Consistentie beslist.'}
               </p>
               {upcomingMatch && (
-                <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/10 p-4 text-sm text-white/80 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.3em] text-white/40">
-                      Volgende wedstrijd
-                    </p>
-                    <p className="text-base font-semibold text-white">
-                      {upcomingMatch.teams[0]?.name ?? 'TBD'}{' '}
-                      <span className="text-white/40">vs</span>{' '}
-                      {upcomingMatch.teams[1]?.name ?? 'TBD'}
-                    </p>
-                    <p className="text-xs text-white/60">
-                      {upcomingMatch.startTime ?? 'Tijd TBD'} ·{' '}
-                      {upcomingMatch.court ?? 'Locatie TBD'}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-                    className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white transition hover:border-white/40 hover:bg-white/20"
-                  >
-                    Bekijk de bracket
-                    <svg
-                      className="h-4 w-4"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M17 8l4 4m0 0l-4 4m4-4H3"
-                      />
-                    </svg>
-                  </button>
+                <div 
+                  className="rounded-2xl border p-4 text-sm"
+                  style={{
+                    borderColor: '#2D3E5A',
+                    backgroundColor: '#1A2335',
+                    color: '#F2F1EF',
+                  }}
+                >
+                  <p className="text-xs uppercase tracking-[0.3em] mb-2" style={{ color: '#F2F1EF', opacity: 0.6 }}>
+                    Volgende wedstrijd
+                  </p>
+                  <p className="text-base font-semibold" style={{ color: '#F2F1EF' }}>
+                    {upcomingMatch.teams[0]?.name ?? 'TBD'}{' '}
+                    <span style={{ color: '#F2F1EF', opacity: 0.5 }}>vs</span>{' '}
+                    {upcomingMatch.teams[1]?.name ?? 'TBD'}
+                  </p>
+                  <p className="text-xs mt-1" style={{ color: '#F2F1EF', opacity: 0.7 }}>
+                    {upcomingMatch.startTime ?? 'Tijd TBD'} ·{' '}
+                    {upcomingMatch.court ?? 'Locatie TBD'}
+                  </p>
                 </div>
               )}
           </div>
 
-            <div className="flex flex-col gap-3 rounded-2xl border border-white/20 bg-black/40 p-4 shadow-lg shadow-black/30 sm:flex-row sm:p-5">
+            <div 
+              className="flex flex-col gap-3 rounded-2xl border p-4 shadow-lg shadow-black/30 sm:flex-row sm:p-5"
+              style={{
+                borderColor: '#2D3E5A',
+                backgroundColor: '#1A2335',
+              }}
+            >
               <StatCard
                 label="Teams"
                 value={teams.length}
@@ -178,33 +146,17 @@ export default function BracketContainer() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3 text-xs uppercase tracking-[0.3em] text-white/40">
-            <div
-              className="h-2 w-12 rounded-full"
-              style={{
-                backgroundImage: `linear-gradient(90deg, ${settings.primaryColor}, ${settings.secondaryColor})`,
-              }}
-            />
-            Live bracket overview
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={handleExportImage}
-              disabled={isExporting}
-              className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white transition hover:border-white/40 hover:bg-white/20 disabled:opacity-50"
-            >
-              {isExporting ? 'Exporteren...' : 'Export PNG'}
-            </button>
-            <button
-              onClick={handleExportPDF}
-              disabled={isExporting}
-              className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white transition hover:border-white/40 hover:bg-white/20 disabled:opacity-50"
-            >
-              {isExporting ? 'Exporteren...' : 'Export PDF'}
-            </button>
-          </div>
+        <div 
+          className="flex items-center gap-3 text-xs uppercase tracking-[0.3em]"
+          style={{ color: '#F2F1EF' }}
+        >
+          <div
+            className="h-2 w-12 rounded-full"
+            style={{
+              backgroundImage: `linear-gradient(90deg, ${settings.primaryColor}, ${settings.secondaryColor})`,
+            }}
+          />
+          Live bracket overview
         </div>
 
         {/* Bracket Container */}
@@ -234,20 +186,36 @@ export default function BracketContainer() {
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 50 }}
                   transition={{ duration: speedMap[settings.animationSpeed] }}
-                  className={`flex-1 min-w-[280px] ${
+                  className={`flex-1 min-w-[280px] transition-all duration-300 ${
                     settings.bracketStyle === 'classic'
-                      ? 'rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-6'
-                      : ''
+                      ? 'rounded-2xl border-2 p-4 sm:p-6 shadow-xl shadow-black/20'
+                      : 'rounded-xl'
                   }`}
+                  style={settings.bracketStyle === 'classic' ? {
+                    borderColor: '#2D3E5A',
+                    background: `linear-gradient(135deg, #1A2335 0%, ${settings.backgroundColor} 100%)`,
+                  } : {}}
                 >
-                  <div className="mb-4 flex items-center justify-between">
+                  <div 
+                    className="mb-6 flex items-center justify-between border-b pb-3"
+                    style={{ borderColor: '#2D3E5A' }}
+                  >
                     <h2
-                      className="text-lg font-semibold uppercase tracking-wide"
-                      style={{ color: settings.primaryColor }}
+                      className="text-xl font-bold uppercase tracking-wider drop-shadow-lg"
+                      style={{ 
+                        color: settings.primaryColor,
+                        textShadow: `0 0 20px ${settings.primaryColor}40`
+                      }}
                     >
                       {round.name}
                     </h2>
-                    <span className="text-xs text-white/60">
+                    <span 
+                      className="rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider"
+                      style={{ 
+                        color: settings.secondaryColor,
+                        backgroundColor: '#2D3E5A',
+                      }}
+                    >
                       {round.matches.length}{' '}
                       {round.matches.length === 1 ? 'wedstrijd' : 'wedstrijden'}
                     </span>
@@ -265,19 +233,21 @@ export default function BracketContainer() {
 
                   {roundIndex < rounds.length - 1 && (
                     <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="mt-4 text-center"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.2 }}
+                      className="mt-6 text-center"
                     >
                       <div
-                        className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs"
+                        className="inline-flex items-center gap-3 rounded-full border-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider shadow-lg"
                         style={{
-                          backgroundColor: `${settings.secondaryColor}20`,
+                          borderColor: settings.secondaryColor,
+                          backgroundColor: `${settings.secondaryColor}15`,
                           color: settings.secondaryColor,
                         }}
                       >
                         <svg
-                          className="h-4 w-4"
+                          className="h-5 w-5 animate-pulse"
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
@@ -285,11 +255,24 @@ export default function BracketContainer() {
                           <path
                             strokeLinecap="round"
                             strokeLinejoin="round"
-                            strokeWidth={2}
+                            strokeWidth={2.5}
                             d="M13 7l5 5m0 0l-5 5m5-5H6"
                           />
                         </svg>
-                        <span>Winnaar gaat door</span>
+                        <span>Winnaar gaat door naar volgende ronde</span>
+                        <svg
+                          className="h-5 w-5 animate-pulse"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2.5}
+                            d="M13 7l5 5m0 0l-5 5m5-5H6"
+                          />
+                        </svg>
                       </div>
                     </motion.div>
                   )}
@@ -325,8 +308,15 @@ function StatCard({
   accent: string;
 }) {
   return (
-    <div className="flex-1 rounded-2xl border border-white/10 bg-white/5 p-4 text-white">
-      <p className="text-xs uppercase tracking-[0.35em] text-white/40">
+    <div 
+      className="flex-1 rounded-2xl border p-4"
+      style={{
+        borderColor: '#2D3E5A',
+        backgroundColor: '#1A2335',
+        color: '#F2F1EF',
+      }}
+    >
+      <p className="text-xs uppercase tracking-[0.35em]" style={{ color: '#F2F1EF', opacity: 0.6 }}>
         {label}
       </p>
       <p
@@ -335,7 +325,7 @@ function StatCard({
       >
         {value}
       </p>
-      <p className="mt-1 text-xs text-white/60">{description}</p>
+      <p className="mt-1 text-xs" style={{ color: '#F2F1EF', opacity: 0.7 }}>{description}</p>
     </div>
   );
 }

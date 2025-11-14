@@ -15,9 +15,9 @@ import { generateBracket } from '@/app/utils/bracketGenerator';
 const defaultSettings: BracketSettings = {
   bracketType: 'single-elimination',
   numTeams: 8,
-  primaryColor: '#10b981', // emerald-500
-  secondaryColor: '#3b82f6', // blue-500
-  backgroundColor: '#0f172a', // slate-900
+  primaryColor: '#482CFF', // helder paars/blauw
+  secondaryColor: '#420AB2', // donker paars/blauw
+  backgroundColor: '#111827', // donkere achtergrond
   bracketStyle: 'modern',
   theme: 'sporty',
   animationSpeed: 'normal',
