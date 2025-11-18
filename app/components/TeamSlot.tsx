@@ -3,15 +3,13 @@
 import { motion } from 'framer-motion';
 import { useBracketStore } from '@/app/store/bracketStore';
 import type { Team } from '@/app/types/bracket';
-import type { ChangeEvent, MouseEvent } from 'react';
+import type { ChangeEvent, MouseEvent, CSSProperties } from 'react';
 
 interface TeamSlotProps {
   team: Team | null;
   matchId: string;
   teamIndex: number;
   isWinner?: boolean;
-  isClickable?: boolean;
-  onSelect?: () => void;
 }
 
 export default function TeamSlot({
@@ -19,10 +17,8 @@ export default function TeamSlot({
   matchId,
   teamIndex,
   isWinner = false,
-  isClickable = true,
-  onSelect,
 }: TeamSlotProps) {
-  const { setTeamScore, setWinner, settings } = useBracketStore();
+  const { settings, setWinner, setTeamScore, isAdminMode } = useBracketStore();
   const speedMap = {
     slow: 0.6,
     normal: 0.3,
@@ -30,15 +26,17 @@ export default function TeamSlot({
   };
 
   const handleClick = (event: MouseEvent<HTMLDivElement>) => {
+    if (!isAdminMode) return;
     event.stopPropagation();
-    if (!team || !isClickable) return;
+    if (!team) return;
     setWinner(matchId, teamIndex);
-    onSelect?.();
   };
 
-  const handleScoreChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const score = parseInt(e.target.value) || 0;
-    setTeamScore(matchId, teamIndex, score);
+  const handleScoreChange = (event: ChangeEvent<HTMLInputElement>) => {
+    if (!isAdminMode) return;
+    const value = event.target.value;
+    const parsed = value === '' ? 0 : Math.max(0, parseInt(value, 10) || 0);
+    setTeamScore(matchId, teamIndex, parsed);
   };
 
   if (!team) {
@@ -63,11 +61,9 @@ export default function TeamSlot({
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: 20 }}
       transition={{ duration: speedMap[settings.animationSpeed] }}
-      whileHover={isClickable ? { scale: 1.02 } : {}}
-      whileTap={isClickable ? { scale: 0.98 } : {}}
       onClick={handleClick}
-      className={`group relative flex h-12 cursor-pointer items-center justify-between rounded-lg border px-3 transition-all ${
-        isClickable ? 'cursor-pointer' : 'cursor-default'
+      className={`group relative flex h-12 items-center justify-between rounded-lg border px-3 transition-all ${
+        isAdminMode && team ? 'cursor-pointer' : 'cursor-default'
       }`}
       style={{
         borderColor: isWinner ? settings.primaryColor : '#2D3E5A',
@@ -93,30 +89,34 @@ export default function TeamSlot({
       </div>
 
       <div className="flex items-center gap-2">
-        <input
-          type="number"
-          min="0"
-          max="999"
-          value={team.score ?? ''}
-          onChange={handleScoreChange}
-          onClick={(e) => e.stopPropagation()}
-          onFocus={(e) => e.stopPropagation()}
-          placeholder="0"
-          title="Voer punten in"
-          className="h-8 w-16 rounded-lg border-2 px-2 text-center text-sm font-bold transition-all focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-offset-transparent"
-          style={{
-            borderColor: '#2D3E5A',
-            backgroundColor: '#111827',
-            color: '#F2F1EF',
-            '--tw-ring-color': settings.secondaryColor,
-          } as React.CSSProperties}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.borderColor = '#482CFF';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.borderColor = '#2D3E5A';
-          }}
-        />
+        {isAdminMode ? (
+          <input
+            type="number"
+            min="0"
+            max="999"
+            value={team.score ?? ''}
+            onChange={handleScoreChange}
+            onClick={(event) => event.stopPropagation()}
+            onFocus={(event) => event.stopPropagation()}
+            placeholder="0"
+            className="h-8 w-16 rounded-lg border-2 px-2 text-center text-sm font-bold transition-all focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-offset-transparent"
+            style={
+              {
+                borderColor: '#2D3E5A',
+                backgroundColor: '#111827',
+                color: '#F2F1EF',
+                '--tw-ring-color': settings.secondaryColor,
+              } as CSSProperties & Record<string, string>
+            }
+          />
+        ) : (
+          <div
+            className="min-w-[3rem] rounded-md border border-white/10 px-3 py-1 text-center text-sm font-bold text-white"
+            style={{ backgroundColor: '#0F172A' }}
+          >
+            {team.score ?? '—'}
+          </div>
+        )}
         {isWinner && (
           <motion.div
             initial={{ scale: 0 }}
@@ -140,17 +140,6 @@ export default function TeamSlot({
           </motion.div>
         )}
       </div>
-
-      {isClickable && !isWinner && (
-        <motion.div
-          className="absolute inset-0 rounded-lg"
-          initial={{ opacity: 0 }}
-          whileHover={{ opacity: 1 }}
-          style={{
-            background: `linear-gradient(90deg, transparent 0%, ${settings.secondaryColor}20 100%)`,
-          }}
-        />
-      )}
     </motion.div>
   );
 }

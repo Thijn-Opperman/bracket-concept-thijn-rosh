@@ -1,9 +1,22 @@
+export type Player = {
+  id: string;
+  name: string;
+  role?: string;
+  number?: string;
+  countryCode?: string;
+  avatar?: string;
+};
+
 export type Team = {
   id: string;
   name: string;
   logo?: string;
   score?: number;
   countryCode?: string;
+  coach?: string;
+  founded?: string;
+  motto?: string;
+  players?: Player[];
 };
 
 export type MatchMediaLink = {
@@ -88,5 +101,6 @@ export type BracketState = {
   teams: Team[];
   settings: BracketSettings;
   selectedMatchId: string | null;
+  isAdminMode: boolean;
 };
 

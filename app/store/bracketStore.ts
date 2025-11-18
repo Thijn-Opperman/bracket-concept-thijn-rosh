@@ -7,6 +7,7 @@ import type {
   BracketState,
   Team,
   Match,
+  MatchDetails,
   Round,
   BracketType,
   BracketGroup,
@@ -36,18 +37,55 @@ interface BracketStore extends BracketState {
   addTeam: (team: Team) => void;
   removeTeam: (teamId: string) => void;
   updateTeam: (teamId: string, updates: Partial<Team>) => void;
+  updateMatchDetails: (
+    matchId: string,
+    updates: {
+      startTime?: string;
+      court?: string;
+      details?: Partial<MatchDetails>;
+    }
+  ) => void;
   setSelectedMatch: (matchId: string | null) => void;
   getMatchById: (matchId: string) => Match | undefined;
   setActiveBracket: (bracketId: string) => void;
   getActiveBracket: () => BracketGroup | undefined;
+  setAdminMode: (value: boolean) => void;
 }
 
 const generateInitialTeams = (count: number): Team[] => {
   return Array.from({ length: count }, (_, i) => ({
     id: `team-${i + 1}`,
     name: `Team ${String.fromCharCode(65 + i)}`,
+    countryCode: ['NL', 'BE', 'DE', 'FR'][i % 4],
+    motto: 'Ready to compete',
     score: undefined,
+    players: [
+      {
+        id: `team-${i + 1}-player-1`,
+        name: `Captain ${String.fromCharCode(65 + i)}`,
+        role: 'Captain',
+        countryCode: ['NL', 'BE', 'DE', 'FR'][i % 4],
+      },
+      {
+        id: `team-${i + 1}-player-2`,
+        name: `Striker ${String.fromCharCode(65 + i)}`,
+        role: 'MVP',
+        countryCode: ['NL', 'BE', 'DE', 'FR'][(i + 1) % 4],
+      },
+    ],
   }));
+};
+
+const mergeTeamIntoMatchSlot = (
+  slot: Team | null,
+  updatedTeam: Team
+): Team | null => {
+  if (!slot) return slot;
+  if (slot.id !== updatedTeam.id) return slot;
+  return {
+    ...updatedTeam,
+    score: slot.score,
+  };
 };
 
 export const useBracketStore = create<BracketStore>()(
@@ -65,6 +103,7 @@ export const useBracketStore = create<BracketStore>()(
         teams: initialTeams,
         settings: defaultSettings,
         selectedMatchId: null,
+        isAdminMode: false,
         setSettings: (newSettings) => {
           const currentSettings = get().settings;
           const updatedSettings = { ...currentSettings, ...newSettings };
@@ -238,18 +277,115 @@ export const useBracketStore = create<BracketStore>()(
           });
         },
         addTeam: (team) => {
-          const { teams } = get();
-          set({ teams: [...teams, team] });
+          set((state) => {
+            const updatedTeams = [...state.teams, team];
+            const updatedSettings = {
+              ...state.settings,
+              numTeams: updatedTeams.length,
+            };
+            const newBrackets = generateBracket(
+              updatedTeams,
+              updatedSettings.bracketType
+            );
+            return {
+              teams: updatedTeams,
+              settings: updatedSettings,
+              brackets: newBrackets,
+              activeBracketId: newBrackets[0]?.id ?? null,
+              selectedMatchId: null,
+            };
+          });
         },
         removeTeam: (teamId) => {
-          const { teams } = get();
-          set({ teams: teams.filter((t) => t.id !== teamId) });
+          set((state) => {
+            const updatedTeams = state.teams.filter((t) => t.id !== teamId);
+            const hasTeams = updatedTeams.length > 0;
+            const safeTeams = hasTeams ? updatedTeams : generateInitialTeams(4);
+            const updatedSettings = {
+              ...state.settings,
+              numTeams: hasTeams ? updatedTeams.length : 4,
+            };
+            const newBrackets = generateBracket(
+              safeTeams,
+              updatedSettings.bracketType
+            );
+            return {
+              teams: safeTeams,
+              settings: updatedSettings,
+              brackets: newBrackets,
+              activeBracketId: newBrackets[0]?.id ?? null,
+              selectedMatchId: null,
+            };
+          });
         },
         updateTeam: (teamId, updates) => {
-          const { teams } = get();
-          set({
-            teams: teams.map((t) => (t.id === teamId ? { ...t, ...updates } : t)),
+          set((state) => {
+            const updatedTeams = state.teams.map((team) =>
+              team.id === teamId ? { ...team, ...updates } : team
+            );
+            const latestTeam = updatedTeams.find((team) => team.id === teamId);
+            if (!latestTeam) {
+              return { teams: updatedTeams };
+            }
+            const updatedBrackets = state.brackets.map((bracket) => ({
+              ...bracket,
+              rounds: bracket.rounds.map((round) => ({
+                ...round,
+                    matches: round.matches.map((match) => ({
+                      ...match,
+                      teams: [
+                        mergeTeamIntoMatchSlot(match.teams[0], latestTeam),
+                        mergeTeamIntoMatchSlot(match.teams[1], latestTeam),
+                      ] as [Team | null, Team | null],
+                    })),
+              })),
+            }));
+            return {
+              teams: updatedTeams,
+              brackets: updatedBrackets,
+            };
           });
+        },
+        updateMatchDetails: (matchId, updates) => {
+          set((state) => ({
+            brackets: state.brackets.map((bracket) => ({
+              ...bracket,
+              rounds: bracket.rounds.map((round) => ({
+                ...round,
+                matches: round.matches.map((match) => {
+                  if (match.id !== matchId) return match;
+
+                  let mergedDetails: MatchDetails | undefined;
+                  if (updates.details) {
+                    const baseDetails: MatchDetails =
+                      match.details ?? {
+                        title: round.name || match.id.toUpperCase(),
+                      };
+                    mergedDetails = {
+                      ...baseDetails,
+                      ...updates.details,
+                    };
+                    if (!mergedDetails.title) {
+                      mergedDetails.title = baseDetails.title;
+                    }
+                  }
+
+                  return {
+                    ...match,
+                    ...(updates.startTime !== undefined && {
+                      startTime: updates.startTime,
+                    }),
+                    ...(updates.court !== undefined && {
+                      court: updates.court,
+                    }),
+                    ...(mergedDetails && {
+                      details: mergedDetails,
+                    }),
+                  };
+                }),
+              })),
+            })),
+          }));
         },
         setSelectedMatch: (matchId) => {
           set({ selectedMatchId: matchId });
@@ -272,6 +408,9 @@ export const useBracketStore = create<BracketStore>()(
         getActiveBracket: () => {
           const { brackets, activeBracketId } = get();
           return brackets.find(b => b.id === activeBracketId);
+        },
+        setAdminMode: (value) => {
+          set({ isAdminMode: value });
         },
       };
     },

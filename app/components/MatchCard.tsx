@@ -4,7 +4,6 @@ import { motion } from 'framer-motion';
 import type { Match } from '@/app/types/bracket';
 import TeamSlot from './TeamSlot';
 import { useBracketStore } from '@/app/store/bracketStore';
-import confetti from 'canvas-confetti';
 import type { MouseEvent } from 'react';
 import { useMemo } from 'react';
 
@@ -14,7 +13,7 @@ interface MatchCardProps {
 }
 
 export default function MatchCard({ match, roundIndex }: MatchCardProps) {
-  const { settings, setWinner, setSelectedMatch, getActiveBracket } = useBracketStore();
+  const { settings, setSelectedMatch, getActiveBracket } = useBracketStore();
   const activeBracket = getActiveBracket();
   const rounds = activeBracket?.rounds ?? [];
   
@@ -48,38 +47,6 @@ export default function MatchCard({ match, roundIndex }: MatchCardProps) {
     slow: 0.6,
     normal: 0.3,
     fast: 0.15,
-  };
-
-  const handleWinnerSelect = (teamIndex: number) => {
-    setWinner(match.id, teamIndex);
-    
-    if (settings.enableConfetti) {
-      confetti({
-        particleCount: 50,
-        spread: 60,
-        origin: { y: 0.6 },
-        colors: [settings.primaryColor, settings.secondaryColor],
-      });
-    }
-
-    if (settings.enableSounds) {
-      // Simple sound effect using Web Audio API
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-      
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-      
-      oscillator.frequency.value = 800;
-      oscillator.type = 'sine';
-      
-      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
-      
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.3);
-    }
   };
 
   const openDetails = (event?: MouseEvent<HTMLElement>) => {
@@ -285,8 +252,6 @@ export default function MatchCard({ match, roundIndex }: MatchCardProps) {
           matchId={match.id}
           teamIndex={0}
           isWinner={match.winnerIndex === 0}
-          isClickable={match.winnerIndex === undefined && match.teams[0] !== null}
-          onSelect={() => handleWinnerSelect(0)}
         />
         
         <div className="relative flex items-center justify-center py-2">
@@ -308,8 +273,6 @@ export default function MatchCard({ match, roundIndex }: MatchCardProps) {
           matchId={match.id}
           teamIndex={1}
           isWinner={match.winnerIndex === 1}
-          isClickable={match.winnerIndex === undefined && match.teams[1] !== null}
-          onSelect={() => handleWinnerSelect(1)}
         />
       </div>
 
