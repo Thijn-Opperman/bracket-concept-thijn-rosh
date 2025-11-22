@@ -108,13 +108,82 @@ export default function MatchDetailsPanel() {
               </button>
             </div>
 
-            <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-white/5 via-white/10 to-white/5 p-6">
-              <motion.div
-                className="absolute inset-0 opacity-60"
-                style={{
-                  background: `radial-gradient(circle at 20% 20%, ${primaryColor}33 0%, transparent 60%), radial-gradient(circle at 80% 20%, ${secondaryColor}33 0%, transparent 55%)`,
-                }}
-              />
+            {/* Team Information */}
+            <div className="grid gap-4 sm:grid-cols-2 mb-6">
+              {match.teams.map((team, index) => {
+                if (!team) return null;
+                return (
+                  <div
+                    key={team.id}
+                    className="rounded-2xl border border-white/10 bg-[#1A2335] p-4"
+                  >
+                    {team.logo && (
+                      <img
+                        src={team.logo}
+                        alt={team.name}
+                        className="h-16 w-16 rounded-lg object-contain mb-3"
+                      />
+                    )}
+                    <h3 className="text-lg font-semibold text-white mb-2">{team.name}</h3>
+                    {team.countryCode && (
+                      <p className="text-xs text-white/60 mb-2">{team.countryCode}</p>
+                    )}
+                    {team.coach && (
+                      <p className="text-xs text-white/70 mb-1">
+                        <span className="text-white/50">Coach:</span> {team.coach}
+                      </p>
+                    )}
+                    {team.motto && (
+                      <p className="text-xs text-white/70 italic mt-2">"{team.motto}"</p>
+                    )}
+                    {team.twitchLink && (
+                      <a
+                        href={team.twitchLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 mt-3 rounded-lg border border-purple-400/50 px-3 py-1.5 text-xs font-semibold text-purple-200 transition hover:border-purple-200 hover:bg-purple-400/10"
+                      >
+                        <svg
+                          className="h-4 w-4"
+                          fill="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z" />
+                        </svg>
+                        Twitch
+                      </a>
+                    )}
+                    {team.players && team.players.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-white/10">
+                        <p className="text-xs uppercase tracking-widest text-white/50 mb-2">
+                          Spelers ({team.players.length})
+                        </p>
+                        <div className="flex flex-wrap gap-1">
+                          {team.players.slice(0, 5).map((player) => (
+                            <span
+                              key={player.id}
+                              className="text-xs rounded-lg border border-white/10 bg-black/40 px-2 py-1 text-white/70"
+                            >
+                              {player.name}
+                              {player.role && (
+                                <span className="text-white/50"> · {player.role}</span>
+                              )}
+                            </span>
+                          ))}
+                          {team.players.length > 5 && (
+                            <span className="text-xs text-white/50 px-2 py-1">
+                              +{team.players.length - 5} meer
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-[#1A2335] p-6">
               <div className="relative space-y-4 text-sm text-white/80">
                 <header className="space-y-2">
                   <p className="text-xs uppercase tracking-widest text-white/60">

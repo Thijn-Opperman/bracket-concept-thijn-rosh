@@ -17,6 +17,8 @@ export type Team = {
   founded?: string;
   motto?: string;
   players?: Player[];
+  twitchLink?: string;
+  brandingLogo?: string;
 };
 
 export type MatchMediaLink = {
@@ -73,8 +75,6 @@ export type BracketStyle = 'classic' | 'modern' | 'playful';
 
 export type Theme = 'retro' | 'futuristic' | 'sporty';
 
-export type AnimationSpeed = 'slow' | 'normal' | 'fast';
-
 export type BracketSettings = {
   bracketType: BracketType;
   numTeams: number;
@@ -83,10 +83,6 @@ export type BracketSettings = {
   backgroundColor: string;
   bracketStyle: BracketStyle;
   theme: Theme;
-  animationSpeed: AnimationSpeed;
-  darkMode: boolean;
-  enableSounds: boolean;
-  enableConfetti: boolean;
 };
 
 export type BracketGroup = {
@@ -102,5 +98,6 @@ export type BracketState = {
   settings: BracketSettings;
   selectedMatchId: string | null;
   isAdminMode: boolean;
+  showHistory: boolean;
 };
 

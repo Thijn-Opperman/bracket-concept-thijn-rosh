@@ -22,16 +22,13 @@ const defaultSettings: BracketSettings = {
   backgroundColor: '#111827', // donkere achtergrond
   bracketStyle: 'modern',
   theme: 'sporty',
-  animationSpeed: 'normal',
-  darkMode: true,
-  enableSounds: false,
-  enableConfetti: true,
 };
 
 interface BracketStore extends BracketState {
   setSettings: (settings: Partial<BracketSettings>) => void;
   setWinner: (matchId: string, winnerIndex: number) => void;
   setTeamScore: (matchId: string, teamIndex: number, score: number) => void;
+  setMatchTeam: (matchId: string, teamIndex: number, teamId: string | null) => void;
   initializeBracket: (teams: Team[]) => void;
   resetBracket: () => void;
   addTeam: (team: Team) => void;
@@ -50,31 +47,8 @@ interface BracketStore extends BracketState {
   setActiveBracket: (bracketId: string) => void;
   getActiveBracket: () => BracketGroup | undefined;
   setAdminMode: (value: boolean) => void;
+  toggleShowHistory: () => void;
 }
-
-const generateInitialTeams = (count: number): Team[] => {
-  return Array.from({ length: count }, (_, i) => ({
-    id: `team-${i + 1}`,
-    name: `Team ${String.fromCharCode(65 + i)}`,
-    countryCode: ['NL', 'BE', 'DE', 'FR'][i % 4],
-    motto: 'Ready to compete',
-    score: undefined,
-    players: [
-      {
-        id: `team-${i + 1}-player-1`,
-        name: `Captain ${String.fromCharCode(65 + i)}`,
-        role: 'Captain',
-        countryCode: ['NL', 'BE', 'DE', 'FR'][i % 4],
-      },
-      {
-        id: `team-${i + 1}-player-2`,
-        name: `Striker ${String.fromCharCode(65 + i)}`,
-        role: 'MVP',
-        countryCode: ['NL', 'BE', 'DE', 'FR'][(i + 1) % 4],
-      },
-    ],
-  }));
-};
 
 const mergeTeamIntoMatchSlot = (
   slot: Team | null,
@@ -91,11 +65,11 @@ const mergeTeamIntoMatchSlot = (
 export const useBracketStore = create<BracketStore>()(
   persist(
     (set, get) => {
-      const initialTeams = generateInitialTeams(defaultSettings.numTeams);
-      const initialBrackets = generateBracket(
-        initialTeams,
-        defaultSettings.bracketType
-      );
+      // Start with empty teams array - users must add teams manually
+      const initialTeams: Team[] = [];
+      const initialBrackets = initialTeams.length > 0 
+        ? generateBracket(initialTeams, defaultSettings.bracketType)
+        : [];
 
       return {
         brackets: initialBrackets,
@@ -104,40 +78,23 @@ export const useBracketStore = create<BracketStore>()(
         settings: defaultSettings,
         selectedMatchId: null,
         isAdminMode: false,
+        showHistory: false,
         setSettings: (newSettings) => {
           const currentSettings = get().settings;
           const updatedSettings = { ...currentSettings, ...newSettings };
           
-          // If numTeams or bracketType changed, regenerate bracket
-          if (
-            newSettings.numTeams !== undefined ||
-            newSettings.bracketType !== undefined
-          ) {
+          // If bracketType changed, regenerate bracket with existing teams
+          if (newSettings.bracketType !== undefined) {
             const teams = get().teams;
-            const numTeams = newSettings.numTeams ?? currentSettings.numTeams;
             const bracketType = newSettings.bracketType ?? currentSettings.bracketType;
             
-            // Adjust teams if needed
-            let updatedTeams = teams;
-            if (newSettings.numTeams !== undefined && newSettings.numTeams !== teams.length) {
-              if (newSettings.numTeams > teams.length) {
-                // Add new teams
-                const newTeams = generateInitialTeams(newSettings.numTeams - teams.length);
-                updatedTeams = [...teams, ...newTeams.map((t, i) => ({
-                  ...t,
-                  id: `team-${teams.length + i + 1}`,
-                  name: `Team ${String.fromCharCode(65 + teams.length + i)}`,
-                }))];
-              } else {
-                // Remove teams
-                updatedTeams = teams.slice(0, newSettings.numTeams);
-              }
-            }
+            // Only generate bracket if there are teams
+            const newBrackets = teams.length > 0 
+              ? generateBracket(teams, bracketType)
+              : [];
             
-            const newBrackets = generateBracket(updatedTeams, bracketType);
             set({
               settings: updatedSettings,
-              teams: updatedTeams,
               brackets: newBrackets,
               activeBracketId: newBrackets[0]?.id ?? null,
               selectedMatchId: null,
@@ -255,6 +212,35 @@ export const useBracketStore = create<BracketStore>()(
           }));
           set({ brackets: updatedBrackets });
         },
+        setMatchTeam: (matchId, teamIndex, teamId) => {
+          const { brackets, teams } = get();
+          const teamToAssign = teamId ? teams.find((t) => t.id === teamId) ?? null : null;
+          
+          const updatedBrackets = brackets.map((bracket) => ({
+            ...bracket,
+            rounds: bracket.rounds.map((round) => ({
+              ...round,
+              matches: round.matches.map((match) => {
+                if (match.id === matchId) {
+                  const newTeams: [Team | null, Team | null] = [...match.teams];
+                  // Preserve score if team already exists in slot
+                  const existingScore = newTeams[teamIndex]?.score;
+                  newTeams[teamIndex] = teamToAssign
+                    ? { ...teamToAssign, score: existingScore }
+                    : null;
+                  // Clear winner if team is removed
+                  const updatedWinnerIndex =
+                    match.winnerIndex === teamIndex && !teamToAssign
+                      ? undefined
+                      : match.winnerIndex;
+                  return { ...match, teams: newTeams, winnerIndex: updatedWinnerIndex };
+                }
+                return match;
+              }),
+            })),
+          }));
+          set({ brackets: updatedBrackets });
+        },
         initializeBracket: (teams) => {
           const { settings } = get();
           const brackets = generateBracket(teams, settings.bracketType);
@@ -266,11 +252,12 @@ export const useBracketStore = create<BracketStore>()(
           });
         },
         resetBracket: () => {
-          const { settings } = get();
-          const teams = generateInitialTeams(settings.numTeams);
-          const brackets = generateBracket(teams, settings.bracketType);
+          const { settings, teams } = get();
+          // Reset bracket with existing teams (don't generate new teams)
+          const brackets = teams.length > 0 
+            ? generateBracket(teams, settings.bracketType)
+            : [];
           set({ 
-            teams, 
             brackets, 
             activeBracketId: brackets[0]?.id ?? null,
             selectedMatchId: null 
@@ -283,10 +270,10 @@ export const useBracketStore = create<BracketStore>()(
               ...state.settings,
               numTeams: updatedTeams.length,
             };
-            const newBrackets = generateBracket(
-              updatedTeams,
-              updatedSettings.bracketType
-            );
+            // Only generate bracket if there are teams
+            const newBrackets = updatedTeams.length > 0
+              ? generateBracket(updatedTeams, updatedSettings.bracketType)
+              : [];
             return {
               teams: updatedTeams,
               settings: updatedSettings,
@@ -299,18 +286,16 @@ export const useBracketStore = create<BracketStore>()(
         removeTeam: (teamId) => {
           set((state) => {
             const updatedTeams = state.teams.filter((t) => t.id !== teamId);
-            const hasTeams = updatedTeams.length > 0;
-            const safeTeams = hasTeams ? updatedTeams : generateInitialTeams(4);
             const updatedSettings = {
               ...state.settings,
-              numTeams: hasTeams ? updatedTeams.length : 4,
+              numTeams: updatedTeams.length,
             };
-            const newBrackets = generateBracket(
-              safeTeams,
-              updatedSettings.bracketType
-            );
+            // Only generate bracket if there are teams
+            const newBrackets = updatedTeams.length > 0
+              ? generateBracket(updatedTeams, updatedSettings.bracketType)
+              : [];
             return {
-              teams: safeTeams,
+              teams: updatedTeams,
               settings: updatedSettings,
               brackets: newBrackets,
               activeBracketId: newBrackets[0]?.id ?? null,
@@ -411,6 +396,9 @@ export const useBracketStore = create<BracketStore>()(
         },
         setAdminMode: (value) => {
           set({ isAdminMode: value });
+        },
+        toggleShowHistory: () => {
+          set((state) => ({ showHistory: !state.showHistory }));
         },
       };
     },

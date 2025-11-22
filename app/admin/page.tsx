@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useBracketStore } from '@/app/store/bracketStore';
-import type { Team } from '@/app/types/bracket';
+import type { Team, BracketType } from '@/app/types/bracket';
 import { useEffect, useState } from 'react';
 
 export default function AdminPage() {
@@ -15,15 +15,21 @@ export default function AdminPage() {
     updateMatchDetails,
     setWinner,
     setTeamScore,
+    setMatchTeam,
     isAdminMode,
     setAdminMode,
     getMatchById,
+    settings,
+    setSettings,
   } = useBracketStore();
 
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [selectedBracketId, setSelectedBracketId] = useState<string | null>(null);
   const [selectedRoundIndex, setSelectedRoundIndex] = useState(0);
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
+  const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
+  const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
+  const [teamSearchTerm, setTeamSearchTerm] = useState('');
 
   useEffect(() => {
     if (!selectedTeamId && teams.length > 0) {
@@ -76,55 +82,108 @@ export default function AdminPage() {
     ? getMatchById(selectedMatchId)
     : undefined;
 
+  const editingTeam = teams.find((team) => team.id === editingTeamId);
+
   const handleTeamFieldChange = (field: keyof Team, value: string) => {
-    if (!selectedTeam) return;
-    updateTeam(selectedTeam.id, { [field]: value });
+    if (!editingTeam) return;
+    updateTeam(editingTeam.id, { [field]: value || undefined });
   };
 
   const handleAddPlayer = () => {
-    if (!selectedTeam) return;
-    const players = selectedTeam.players ?? [];
+    if (!editingTeam) return;
+    const players = editingTeam.players ?? [];
     const newPlayer = {
-      id: `${selectedTeam.id}-player-${Date.now()}`,
+      id: `${editingTeam.id}-player-${Date.now()}`,
       name: `Speler ${players.length + 1}`,
       role: 'Starter',
     };
-    updateTeam(selectedTeam.id, { players: [...players, newPlayer] });
+    updateTeam(editingTeam.id, { players: [...players, newPlayer] });
   };
 
   const handlePlayerFieldChange = (
     playerId: string,
     field: 'name' | 'role' | 'number' | 'countryCode'
   ) => (value: string) => {
-    if (!selectedTeam) return;
-    const players = (selectedTeam.players ?? []).map((player) =>
+    if (!editingTeam) return;
+    const players = (editingTeam.players ?? []).map((player) =>
       player.id === playerId ? { ...player, [field]: value } : player
     );
-    updateTeam(selectedTeam.id, { players });
+    updateTeam(editingTeam.id, { players });
   };
 
   const handleRemovePlayer = (playerId: string) => {
-    if (!selectedTeam) return;
-    const players = (selectedTeam.players ?? []).filter((player) => player.id !== playerId);
-    updateTeam(selectedTeam.id, { players });
+    if (!editingTeam) return;
+    const players = (editingTeam.players ?? []).filter((player) => player.id !== playerId);
+    updateTeam(editingTeam.id, { players });
   };
 
+  const [newTeamForm, setNewTeamForm] = useState<Partial<Team>>({
+    name: '',
+    countryCode: '',
+    logo: '',
+    coach: '',
+    motto: '',
+    twitchLink: '',
+    brandingLogo: '',
+    players: [],
+  });
+  const [isCreatingTeam, setIsCreatingTeam] = useState(false);
+
   const handleCreateTeam = () => {
+    if (!newTeamForm.name || newTeamForm.name.trim() === '') {
+      alert('Teamnaam is verplicht');
+      return;
+    }
+    
+    // Check for duplicate team name
+    const duplicateTeam = teams.find(
+      (t) => t.name.toLowerCase().trim() === newTeamForm.name?.toLowerCase().trim()
+    );
+    if (duplicateTeam) {
+      alert(`Een team met de naam "${newTeamForm.name}" bestaat al. Kies een andere naam.`);
+      return;
+    }
+    
     const id = `team-${Date.now()}`;
     addTeam({
       id,
-      name: `Nieuw team ${teams.length + 1}`,
-      countryCode: 'NL',
-      motto: 'Nieuw team',
+      name: newTeamForm.name.trim(),
+      countryCode: newTeamForm.countryCode?.trim() || undefined,
+      logo: newTeamForm.logo?.trim() || undefined,
+      coach: newTeamForm.coach?.trim() || undefined,
+      motto: newTeamForm.motto?.trim() || undefined,
+      twitchLink: newTeamForm.twitchLink?.trim() || undefined,
+      brandingLogo: newTeamForm.brandingLogo?.trim() || undefined,
       players: [],
     });
+    // Reset form
+    setNewTeamForm({
+      name: '',
+      countryCode: '',
+      logo: '',
+      coach: '',
+      motto: '',
+      twitchLink: '',
+      brandingLogo: '',
+      players: [],
+    });
+    setIsCreatingTeam(false);
     setSelectedTeamId(id);
   };
 
   const handleDeleteTeam = (teamId: string) => {
-    removeTeam(teamId);
-    if (selectedTeamId === teamId) {
-      setSelectedTeamId(null);
+    const team = teams.find((t) => t.id === teamId);
+    if (!team) return;
+    
+    if (window.confirm(`Weet je zeker dat je "${team.name}" wilt verwijderen? Dit kan niet ongedaan worden gemaakt.`)) {
+      removeTeam(teamId);
+      if (selectedTeamId === teamId) {
+        setSelectedTeamId(null);
+      }
+      if (editingTeamId === teamId) {
+        setIsTeamModalOpen(false);
+        setEditingTeamId(null);
+      }
     }
   };
 
@@ -231,158 +290,148 @@ export default function AdminPage() {
       </header>
 
       <main className="mx-auto mt-8 flex max-w-6xl flex-col gap-6 lg:flex-row">
-        <section className="w-full rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl shadow-black/30 backdrop-blur">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+        {/* Left column: Bracket type selector and team creation */}
+        <aside className="w-full lg:w-1/3 flex flex-col gap-6">
+          {/* Bracket Type Selector */}
+          <section className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl shadow-black/30 backdrop-blur">
             <div>
               <p className="text-xs uppercase tracking-[0.35em] text-white/60">
-                Teams
+                Bracket Type
               </p>
-              <h2 className="text-2xl font-semibold text-white">Teambeheer</h2>
+              <h2 className="text-2xl font-semibold text-white">Selecteer Type</h2>
             </div>
-            <div className="flex gap-2">
+            <div className="mt-4 space-y-3">
+              {[
+                {
+                  value: 'single-elimination' as BracketType,
+                  label: 'Single Elimination',
+                  description: 'Winnaar gaat door, verliezer is uit',
+                },
+                {
+                  value: 'double-elimination' as BracketType,
+                  label: 'Double Elimination',
+                  description: 'Tweede kansen voor verliezers',
+                },
+                {
+                  value: 'round-robin' as BracketType,
+                  label: 'Round Robin',
+                  description: 'Iedereen speelt tegen iedereen',
+                },
+              ].map((type) => (
+                <button
+                  key={type.value}
+                  onClick={() => {
+                    setSettings({ bracketType: type.value });
+                  }}
+                  className={`w-full rounded-2xl border-2 p-4 text-left transition ${
+                    settings.bracketType === type.value
+                      ? 'border-white/60 bg-white/10 shadow-lg'
+                      : 'border-white/10 bg-black/20 hover:border-white/30'
+                  }`}
+                >
+                  <p className="font-semibold text-white">{type.label}</p>
+                  <p className="text-xs text-white/60 mt-1">{type.description}</p>
+                </button>
+              ))}
+            </div>
+          </section>
+
+        </aside>
+
+        {/* Right column: Team management and match management */}
+        <div className="w-full lg:w-2/3 flex flex-col gap-6">
+          {/* Team Management */}
+          <section className="w-full rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl shadow-black/30 backdrop-blur">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.35em] text-white/60">
+                  Teams
+                </p>
+                <h2 className="text-2xl font-semibold text-white">Teambeheer</h2>
+              </div>
               <button
-                onClick={handleCreateTeam}
+                onClick={() => setIsCreatingTeam(true)}
                 className="rounded-full border border-emerald-400/40 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-emerald-300 transition hover:border-emerald-300 hover:bg-emerald-400/10"
               >
-                Nieuw team
+                Team toevoegen
               </button>
-              {selectedTeam && (
-                <button
-                  onClick={() => handleDeleteTeam(selectedTeam.id)}
-                  className="rounded-full border border-red-400/40 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-red-300 transition hover:border-red-300 hover:bg-red-400/10"
-                >
-                  Verwijder
-                </button>
-              )}
             </div>
-          </div>
+
+          {/* Search/Filter */}
+          {teams.length > 3 && (
+            <div className="mt-4">
+              <input
+                type="text"
+                placeholder="Zoek teams..."
+                value={teamSearchTerm}
+                onChange={(e) => setTeamSearchTerm(e.target.value)}
+                className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-2 text-white outline-none transition focus:border-white/40"
+              />
+            </div>
+          )}
 
           <div className="mt-4 grid gap-3 md:grid-cols-2">
-            {teams.map((team) => (
-              <button
+            {teams
+              .filter((team) =>
+                teamSearchTerm === '' ||
+                team.name.toLowerCase().includes(teamSearchTerm.toLowerCase()) ||
+                (team.countryCode ?? '').toLowerCase().includes(teamSearchTerm.toLowerCase())
+              )
+              .map((team) => (
+              <div
                 key={team.id}
-                onClick={() => setSelectedTeamId(team.id)}
-                className={`rounded-2xl border px-4 py-3 text-left transition ${
-                  selectedTeamId === team.id
-                    ? 'border-white/60 bg-white/10 shadow-lg shadow-black/30'
-                    : 'border-white/10 bg-black/20 hover:border-white/30'
-                }`}
+                className="rounded-2xl border border-white/10 bg-black/20 p-4 transition hover:border-white/30"
               >
-                <p className="text-sm uppercase tracking-widest text-white/60">
-                  {team.countryCode ?? 'N/A'}
-                </p>
-                <p className="text-lg font-semibold text-white">{team.name}</p>
-                <p className="text-xs text-white/60">
-                  {(team.players ?? []).length} spelers
-                </p>
-              </button>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1">
+                    <p className="text-sm uppercase tracking-widest text-white/60">
+                      {team.countryCode ?? 'N/A'}
+                    </p>
+                    <p className="text-lg font-semibold text-white">{team.name}</p>
+                    <p className="text-xs text-white/60">
+                      {(team.players ?? []).length} spelers
+                    </p>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingTeamId(team.id);
+                      setIsTeamModalOpen(true);
+                    }}
+                    className="rounded-lg border border-white/20 p-2 text-white/70 transition hover:border-white/40 hover:bg-white/10 hover:text-white"
+                    title="Team instellingen"
+                  >
+                    <svg
+                      className="h-5 w-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                      />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              </div>
             ))}
           </div>
 
-          {selectedTeam ? (
-            <div className="mt-6 space-y-5">
-              <div className="grid gap-4 md:grid-cols-2">
-                <Field
-                  label="Teamnaam"
-                  value={selectedTeam.name}
-                  onChange={(value) => handleTeamFieldChange('name', value)}
-                />
-                <Field
-                  label="Landcode"
-                  value={selectedTeam.countryCode ?? ''}
-                  placeholder="NL"
-                  onChange={(value) => handleTeamFieldChange('countryCode', value)}
-                />
-                <Field
-                  label="Logo URL"
-                  value={selectedTeam.logo ?? ''}
-                  placeholder="https://..."
-                  onChange={(value) => handleTeamFieldChange('logo', value)}
-                />
-                <Field
-                  label="Coach"
-                  value={selectedTeam.coach ?? ''}
-                  onChange={(value) => handleTeamFieldChange('coach', value)}
-                />
-              </div>
-              <Field
-                label="Teammotto"
-                value={selectedTeam.motto ?? ''}
-                onChange={(value) => handleTeamFieldChange('motto', value)}
-              />
-
-              <div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.35em] text-white/60">
-                      Spelers
-                    </p>
-                    <h3 className="text-lg font-semibold text-white">
-                      Roster ({(selectedTeam.players ?? []).length})
-                    </h3>
-                  </div>
-                  <button
-                    onClick={handleAddPlayer}
-                    className="rounded-full border border-white/20 px-4 py-1 text-xs font-semibold uppercase tracking-widest text-white transition hover:border-white/40"
-                  >
-                    Voeg speler toe
-                  </button>
-                </div>
-                <div className="mt-3 space-y-3">
-                  {(selectedTeam.players ?? []).map((player) => (
-                    <div
-                      key={player.id}
-                      className="rounded-2xl border border-white/10 bg-black/30 p-4"
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <p className="text-sm font-semibold text-white">
-                          {player.name}
-                        </p>
-                        <button
-                          onClick={() => handleRemovePlayer(player.id)}
-                          className="text-xs uppercase tracking-widest text-white/50 hover:text-red-300"
-                        >
-                          Verwijder
-                        </button>
-                      </div>
-                      <div className="mt-3 grid gap-3 md:grid-cols-2">
-                        <Field
-                          label="Naam"
-                          value={player.name}
-                          onChange={handlePlayerFieldChange(player.id, 'name')}
-                        />
-                        <Field
-                          label="Rol"
-                          value={player.role ?? ''}
-                          placeholder="Captain / Support"
-                          onChange={handlePlayerFieldChange(player.id, 'role')}
-                        />
-                        <Field
-                          label="Rugnummer"
-                          value={player.number ?? ''}
-                          onChange={handlePlayerFieldChange(player.id, 'number')}
-                        />
-                        <Field
-                          label="Landcode"
-                          value={player.countryCode ?? ''}
-                          onChange={handlePlayerFieldChange(player.id, 'countryCode')}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                  {(selectedTeam.players ?? []).length === 0 && (
-                    <p className="text-sm text-white/60">
-                      Nog geen spelers toegevoegd aan dit team.
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-          ) : (
+          {teams.length === 0 && (
             <p className="mt-6 text-sm text-white/60">
-              Selecteer een team om details te bewerken.
+              Nog geen teams toegevoegd. Maak een nieuw team aan in het linker paneel.
             </p>
           )}
+
         </section>
 
         <section className="w-full rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl shadow-black/30 backdrop-blur">
@@ -427,63 +476,97 @@ export default function AdminPage() {
 
           {selectedMatch ? (
             <div className="mt-6 space-y-4">
-              <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
-                <p className="text-xs uppercase tracking-[0.35em] text-white/60">
-                  Deelnemers
-                </p>
-                <div className="mt-3 flex flex-col gap-2">
-                  {selectedMatch.teams.map((team, index) => (
-                    <div
-                      key={`${selectedMatch.id}-${index}`}
-                      className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white"
-                    >
-                      {team?.name ?? 'TBD'}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
+              {/* Team Assignment */}
               <div className="grid gap-4 md:grid-cols-2">
                 {selectedMatch.teams.map((team, index) => (
                   <div
-                    key={`${selectedMatch.id}-controls-${index}`}
+                    key={`${selectedMatch.id}-team-${index}`}
                     className="rounded-2xl border border-white/10 bg-black/40 p-4"
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-sm font-semibold text-white">
-                        {team?.name ?? `Team ${index + 1}`}
-                      </p>
-                      {selectedMatch.winnerIndex === index && (
-                        <span className="rounded-full border border-emerald-400/50 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-widest text-emerald-200">
-                          Winnaar
-                        </span>
-                      )}
-                    </div>
-                    <div className="mt-3 space-y-3">
-                      <Field
-                        label="Score"
-                        value={team?.score?.toString() ?? ''}
-                        placeholder="0"
-                        type="number"
-                        onChange={handleScoreInputChange(index)}
+                    <div className="mb-3">
+                      <label className="text-xs uppercase tracking-[0.35em] text-white/60 mb-2 block">
+                        Team {index + 1}
+                      </label>
+                      <SelectField
+                        label=""
+                        value={team?.id ?? ''}
+                        onChange={(value) => {
+                          setMatchTeam(selectedMatch.id, index, value === '' ? null : value);
+                        }}
+                        options={[
+                          { label: 'Geen team', value: '' },
+                          ...teams.map((t) => ({
+                            label: t.name,
+                            value: t.id,
+                          })),
+                        ]}
                       />
-                      <button
-                        type="button"
-                        disabled={!team}
-                        onClick={handleWinnerSelect(index)}
-                        className={`w-full rounded-full border px-3 py-2 text-xs font-semibold uppercase tracking-widest transition ${
-                          team
-                            ? selectedMatch.winnerIndex === index
-                              ? 'border-emerald-400 text-emerald-100 bg-emerald-400/20 cursor-default'
-                              : 'border-emerald-400/50 text-emerald-200 hover:border-emerald-200 hover:bg-emerald-400/10'
-                            : 'cursor-not-allowed border-white/10 text-white/30'
-                        }`}
-                      >
-                        {selectedMatch.winnerIndex === index
-                          ? 'Reeds winnaar'
-                          : 'Markeer als winnaar'}
-                      </button>
                     </div>
+
+                    {team && (
+                      <>
+                        <div className="mt-4 flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+                          <div>
+                            {team.logo && (
+                              <img
+                                src={team.logo}
+                                alt={team.name}
+                                className="mb-2 h-12 w-12 rounded-lg object-contain"
+                              />
+                            )}
+                            <p className="text-sm font-semibold text-white">{team.name}</p>
+                            {team.countryCode && (
+                              <p className="text-xs text-white/60">{team.countryCode}</p>
+                            )}
+                          </div>
+                          {selectedMatch.winnerIndex === index && (
+                            <span className="rounded-full border border-emerald-400/50 px-2 py-1 text-[11px] font-semibold uppercase tracking-widest text-emerald-200">
+                              Winnaar
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="mt-4 space-y-3">
+                          <Field
+                            label="Score"
+                            value={team.score?.toString() ?? ''}
+                            placeholder="0"
+                            type="number"
+                            onChange={handleScoreInputChange(index)}
+                          />
+                          <button
+                            type="button"
+                            onClick={handleWinnerSelect(index)}
+                            className={`w-full rounded-full border px-3 py-2 text-xs font-semibold uppercase tracking-widest transition ${
+                              selectedMatch.winnerIndex === index
+                                ? 'border-emerald-400 text-emerald-100 bg-emerald-400/20 cursor-default'
+                                : 'border-emerald-400/50 text-emerald-200 hover:border-emerald-200 hover:bg-emerald-400/10'
+                            }`}
+                          >
+                            {selectedMatch.winnerIndex === index
+                              ? 'Reeds winnaar'
+                              : 'Markeer als winnaar'}
+                          </button>
+                          {team.twitchLink && (
+                            <a
+                              href={team.twitchLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex w-full items-center justify-center gap-2 rounded-full border border-purple-400/50 px-3 py-2 text-xs font-semibold uppercase tracking-widest text-purple-200 transition hover:border-purple-200 hover:bg-purple-400/10"
+                            >
+                              <svg
+                                className="h-4 w-4"
+                                fill="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z" />
+                              </svg>
+                              Twitch
+                            </a>
+                          )}
+                        </div>
+                      </>
+                    )}
                   </div>
                 ))}
               </div>
@@ -535,7 +618,364 @@ export default function AdminPage() {
             </p>
           )}
         </section>
+        </div>
       </main>
+
+      {/* Team Creation Modal */}
+      {isCreatingTeam && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+          onClick={() => {
+            setIsCreatingTeam(false);
+            setNewTeamForm({
+              name: '',
+              countryCode: '',
+              logo: '',
+              coach: '',
+              motto: '',
+              twitchLink: '',
+              brandingLogo: '',
+              players: [],
+            });
+          }}
+        >
+          <div
+            className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-3xl border border-white/10 bg-gradient-to-br from-[#030712] via-[#0f172a] to-[#020617] p-6 shadow-2xl shadow-black/40"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <button
+              onClick={() => {
+                setIsCreatingTeam(false);
+                setNewTeamForm({
+                  name: '',
+                  countryCode: '',
+                  logo: '',
+                  coach: '',
+                  motto: '',
+                  twitchLink: '',
+                  brandingLogo: '',
+                  players: [],
+                });
+              }}
+              className="absolute right-4 top-4 rounded-full border border-white/20 p-2 text-white/70 transition hover:border-white/40 hover:bg-white/10 hover:text-white"
+            >
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+
+            {/* Header */}
+            <div className="mb-6 pr-10">
+              <p className="text-xs uppercase tracking-[0.35em] text-white/60">
+                Nieuw team
+              </p>
+              <h2 className="text-2xl font-semibold text-white">Team toevoegen</h2>
+            </div>
+
+            {/* Form */}
+            <div className="space-y-4">
+              <Field
+                label="Teamnaam *"
+                value={newTeamForm.name ?? ''}
+                onChange={(value) => setNewTeamForm({ ...newTeamForm, name: value })}
+                placeholder="Vul teamnaam in"
+              />
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field
+                  label="Landcode"
+                  value={newTeamForm.countryCode ?? ''}
+                  placeholder="NL"
+                  onChange={(value) => setNewTeamForm({ ...newTeamForm, countryCode: value })}
+                />
+                <Field
+                  label="Coach"
+                  value={newTeamForm.coach ?? ''}
+                  placeholder="Coach naam"
+                  onChange={(value) => setNewTeamForm({ ...newTeamForm, coach: value })}
+                />
+              </div>
+              <div>
+                <Field
+                  label="Logo URL"
+                  value={newTeamForm.logo ?? ''}
+                  placeholder="https://..."
+                  onChange={(value) => setNewTeamForm({ ...newTeamForm, logo: value })}
+                />
+                {newTeamForm.logo && (
+                  <div className="mt-2 flex items-center gap-3 rounded-xl border border-white/10 bg-black/30 p-3">
+                    <img
+                      src={newTeamForm.logo}
+                      alt="Logo preview"
+                      className="h-12 w-12 rounded-lg object-contain"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                    <span className="text-xs text-white/60">Logo preview</span>
+                  </div>
+                )}
+              </div>
+              <Field
+                label="Twitch Link"
+                value={newTeamForm.twitchLink ?? ''}
+                placeholder="https://twitch.tv/..."
+                onChange={(value) => setNewTeamForm({ ...newTeamForm, twitchLink: value })}
+              />
+              <Field
+                label="Branding Logo URL"
+                value={newTeamForm.brandingLogo ?? ''}
+                placeholder="https://..."
+                onChange={(value) => setNewTeamForm({ ...newTeamForm, brandingLogo: value })}
+              />
+              <Field
+                label="Teammotto"
+                value={newTeamForm.motto ?? ''}
+                placeholder="Team motto"
+                onChange={(value) => setNewTeamForm({ ...newTeamForm, motto: value })}
+              />
+              <div className="flex gap-2 pt-4 border-t border-white/10">
+                <button
+                  onClick={handleCreateTeam}
+                  className="flex-1 rounded-full border border-emerald-400/40 px-6 py-2 text-sm font-semibold uppercase tracking-widest text-emerald-300 transition hover:border-emerald-300 hover:bg-emerald-400/10"
+                >
+                  Team aanmaken
+                </button>
+                <button
+                  onClick={() => {
+                    setIsCreatingTeam(false);
+                    setNewTeamForm({
+                      name: '',
+                      countryCode: '',
+                      logo: '',
+                      coach: '',
+                      motto: '',
+                      twitchLink: '',
+                      brandingLogo: '',
+                      players: [],
+                    });
+                  }}
+                  className="rounded-full border border-white/20 px-6 py-2 text-sm font-semibold uppercase tracking-widest text-white/70 transition hover:border-white/40"
+                >
+                  Annuleren
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Team Edit Modal */}
+      {isTeamModalOpen && editingTeam && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+          onClick={() => {
+            setIsTeamModalOpen(false);
+            setEditingTeamId(null);
+          }}
+        >
+          <div
+            className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-3xl border border-white/10 bg-gradient-to-br from-[#030712] via-[#0f172a] to-[#020617] p-6 shadow-2xl shadow-black/40"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <button
+              onClick={() => {
+                setIsTeamModalOpen(false);
+                setEditingTeamId(null);
+              }}
+              className="absolute right-4 top-4 rounded-full border border-white/20 p-2 text-white/70 transition hover:border-white/40 hover:bg-white/10 hover:text-white"
+            >
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+
+            {/* Header */}
+            <div className="mb-6 flex items-center justify-between pr-10">
+              <div>
+                <p className="text-xs uppercase tracking-[0.35em] text-white/60">
+                  Team bewerken
+                </p>
+                <h2 className="text-2xl font-semibold text-white">{editingTeam.name}</h2>
+              </div>
+              <button
+                onClick={() => {
+                  if (editingTeam) {
+                    handleDeleteTeam(editingTeam.id);
+                    setIsTeamModalOpen(false);
+                    setEditingTeamId(null);
+                  }
+                }}
+                className="rounded-full border border-red-400/40 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-red-300 transition hover:border-red-300 hover:bg-red-400/10"
+              >
+                Verwijder team
+              </button>
+            </div>
+
+            {/* Team Fields */}
+            <div className="space-y-5">
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field
+                  label="Teamnaam"
+                  value={editingTeam.name}
+                  onChange={(value) => handleTeamFieldChange('name', value)}
+                />
+                <Field
+                  label="Landcode"
+                  value={editingTeam.countryCode ?? ''}
+                  placeholder="NL"
+                  onChange={(value) => handleTeamFieldChange('countryCode', value)}
+                />
+                <div>
+                  <Field
+                    label="Logo URL"
+                    value={editingTeam.logo ?? ''}
+                    placeholder="https://..."
+                    onChange={(value) => handleTeamFieldChange('logo', value)}
+                  />
+                  {editingTeam.logo && (
+                    <div className="mt-2 flex items-center gap-3 rounded-xl border border-white/10 bg-black/30 p-3">
+                      <img
+                        src={editingTeam.logo}
+                        alt="Logo preview"
+                        className="h-12 w-12 rounded-lg object-contain"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                      <span className="text-xs text-white/60">Logo preview</span>
+                    </div>
+                  )}
+                </div>
+                <Field
+                  label="Coach"
+                  value={editingTeam.coach ?? ''}
+                  onChange={(value) => handleTeamFieldChange('coach', value)}
+                />
+                <Field
+                  label="Twitch Link"
+                  value={editingTeam.twitchLink ?? ''}
+                  placeholder="https://twitch.tv/..."
+                  onChange={(value) => handleTeamFieldChange('twitchLink', value)}
+                />
+                <Field
+                  label="Branding Logo URL"
+                  value={editingTeam.brandingLogo ?? ''}
+                  placeholder="https://..."
+                  onChange={(value) => handleTeamFieldChange('brandingLogo', value)}
+                />
+              </div>
+              <Field
+                label="Teammotto"
+                value={editingTeam.motto ?? ''}
+                onChange={(value) => handleTeamFieldChange('motto', value)}
+              />
+
+              {/* Players Section */}
+              <div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.35em] text-white/60">
+                      Spelers
+                    </p>
+                    <h3 className="text-lg font-semibold text-white">
+                      Roster ({(editingTeam.players ?? []).length})
+                    </h3>
+                  </div>
+                  <button
+                    onClick={handleAddPlayer}
+                    className="rounded-full border border-white/20 px-4 py-1 text-xs font-semibold uppercase tracking-widest text-white transition hover:border-white/40"
+                  >
+                    Voeg speler toe
+                  </button>
+                </div>
+                <div className="mt-3 space-y-3">
+                  {(editingTeam.players ?? []).map((player) => (
+                    <div
+                      key={player.id}
+                      className="rounded-2xl border border-white/10 bg-black/30 p-4"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <p className="text-sm font-semibold text-white">
+                          {player.name}
+                        </p>
+                        <button
+                          onClick={() => handleRemovePlayer(player.id)}
+                          className="text-xs uppercase tracking-widest text-white/50 hover:text-red-300"
+                        >
+                          Verwijder
+                        </button>
+                      </div>
+                      <div className="mt-3 grid gap-3 md:grid-cols-2">
+                        <Field
+                          label="Naam"
+                          value={player.name}
+                          onChange={handlePlayerFieldChange(player.id, 'name')}
+                        />
+                        <Field
+                          label="Rol"
+                          value={player.role ?? ''}
+                          placeholder="Captain / Support"
+                          onChange={handlePlayerFieldChange(player.id, 'role')}
+                        />
+                        <Field
+                          label="Rugnummer"
+                          value={player.number ?? ''}
+                          onChange={handlePlayerFieldChange(player.id, 'number')}
+                        />
+                        <Field
+                          label="Landcode"
+                          value={player.countryCode ?? ''}
+                          onChange={handlePlayerFieldChange(player.id, 'countryCode')}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                  {(editingTeam.players ?? []).length === 0 && (
+                    <p className="text-sm text-white/60">
+                      Nog geen spelers toegevoegd aan dit team.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Close button at bottom */}
+              <div className="flex justify-end pt-4 border-t border-white/10">
+                <button
+                  onClick={() => {
+                    setIsTeamModalOpen(false);
+                    setEditingTeamId(null);
+                  }}
+                  className="rounded-full border border-white/20 px-6 py-2 text-sm font-semibold uppercase tracking-widest text-white transition hover:border-white/40 hover:bg-white/10"
+                >
+                  Sluiten
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,20 +1,13 @@
 'use client';
 
 import { useBracketStore } from '@/app/store/bracketStore';
-import type { AnimationSpeed, BracketType } from '@/app/types/bracket';
+import type { BracketType } from '@/app/types/bracket';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
 
 export default function SettingsPanel() {
   const { settings, setSettings, resetBracket } = useBracketStore();
   const [isOpen, setIsOpen] = useState(true);
-
-
-  const animationSpeeds: { value: AnimationSpeed; label: string }[] = [
-    { value: 'slow', label: 'Traag' },
-    { value: 'normal', label: 'Normaal' },
-    { value: 'fast', label: 'Snel' },
-  ];
 
   const bracketTypes: { 
     value: BracketType; 
@@ -46,11 +39,7 @@ export default function SettingsPanel() {
     },
   ];
 
-  const speedMap = {
-    slow: 0.6,
-    normal: 0.3,
-    fast: 0.15,
-  };
+  const animationDuration = 0.15; // Fast animations
 
   return (
     <>
@@ -89,7 +78,7 @@ export default function SettingsPanel() {
             initial={{ x: -400 }}
             animate={{ x: 0 }}
             exit={{ x: -400 }}
-            transition={{ duration: speedMap[settings.animationSpeed] }}
+            transition={{ duration: animationDuration }}
             className="fixed left-0 top-0 z-40 h-full w-72 overflow-y-auto border-r p-4 backdrop-blur-md sm:w-80 sm:p-6 lg:relative lg:z-auto lg:h-auto lg:border-r"
             style={{
               borderColor: '#2D3E5A',
@@ -159,28 +148,6 @@ export default function SettingsPanel() {
                       </div>
                     </button>
                   ))}
-                </div>
-              </div>
-
-              {/* Number of Teams */}
-              <div>
-                <label className="mb-2 block text-sm font-medium" style={{ color: '#F2F1EF' }}>
-                  Aantal Teams: {settings.numTeams}
-                </label>
-                <input
-                  type="range"
-                  min="4"
-                  max="32"
-                  step="2"
-                  value={settings.numTeams}
-                  onChange={(e) =>
-                    setSettings({ numTeams: parseInt(e.target.value) })
-                  }
-                  className="w-full"
-                />
-                <div className="mt-1 flex justify-between text-xs" style={{ color: '#F2F1EF', opacity: 0.7 }}>
-                  <span>4</span>
-                  <span>32</span>
                 </div>
               </div>
 
@@ -281,78 +248,6 @@ export default function SettingsPanel() {
                     onBlur={(e) => e.target.style.borderColor = '#2D3E5A'}
                   />
                 </div>
-              </div>
-
-              {/* Animation Speed */}
-              <div>
-                <label className="mb-2 block text-sm font-medium" style={{ color: '#F2F1EF' }}>
-                  Animatie Snelheid
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {animationSpeeds.map((speed) => (
-                    <button
-                      key={speed.value}
-                      onClick={() =>
-                        setSettings({ animationSpeed: speed.value })
-                      }
-                      className={`rounded-lg border px-3 py-2 text-sm transition-colors ${
-                        settings.animationSpeed === speed.value
-                          ? 'border-[#482CFF] bg-[#482CFF]/20'
-                          : 'border-[#2D3E5A] bg-[#1A2335] hover:border-[#482CFF]/50'
-                      }`}
-                      style={{
-                        color: '#F2F1EF',
-                      }}
-                    >
-                      {speed.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Toggles */}
-              <div className="space-y-3">
-                <label className="flex items-center justify-between">
-                  <span className="text-sm font-medium" style={{ color: '#F2F1EF' }}>
-                    Donkere Modus
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={settings.darkMode}
-                    onChange={(e) =>
-                      setSettings({ darkMode: e.target.checked })
-                    }
-                    className="h-5 w-5 cursor-pointer rounded"
-                  />
-                </label>
-
-                <label className="flex items-center justify-between">
-                  <span className="text-sm font-medium" style={{ color: '#F2F1EF' }}>
-                    Confetti Effect
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={settings.enableConfetti}
-                    onChange={(e) =>
-                      setSettings({ enableConfetti: e.target.checked })
-                    }
-                    className="h-5 w-5 cursor-pointer rounded"
-                  />
-                </label>
-
-                <label className="flex items-center justify-between">
-                  <span className="text-sm font-medium" style={{ color: '#F2F1EF' }}>
-                    Geluidseffecten
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={settings.enableSounds}
-                    onChange={(e) =>
-                      setSettings({ enableSounds: e.target.checked })
-                    }
-                    className="h-5 w-5 cursor-pointer rounded"
-                  />
-                </label>
               </div>
 
               {/* Reset Button */}

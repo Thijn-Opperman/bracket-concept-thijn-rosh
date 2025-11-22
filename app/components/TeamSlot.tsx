@@ -19,11 +19,7 @@ export default function TeamSlot({
   isWinner = false,
 }: TeamSlotProps) {
   const { settings, setWinner, setTeamScore, isAdminMode } = useBracketStore();
-  const speedMap = {
-    slow: 0.6,
-    normal: 0.3,
-    fast: 0.15,
-  };
+  const animationDuration = 0.15; // Fast animations
 
   const handleClick = (event: MouseEvent<HTMLDivElement>) => {
     if (!isAdminMode) return;
@@ -60,7 +56,7 @@ export default function TeamSlot({
       initial={{ opacity: 0, x: -20 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: 20 }}
-      transition={{ duration: speedMap[settings.animationSpeed] }}
+      transition={{ duration: animationDuration }}
       onClick={handleClick}
       className={`group relative flex h-12 items-center justify-between rounded-lg border px-3 transition-all ${
         isAdminMode && team ? 'cursor-pointer' : 'cursor-default'

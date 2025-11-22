@@ -7,14 +7,10 @@ import MatchDetailsPanel from './MatchDetailsPanel';
 import { useMemo, useState } from 'react';
 
 export default function BracketContainer() {
-  const { brackets, activeBracketId, settings, teams, selectedMatchId, setActiveBracket, getActiveBracket } = useBracketStore();
+  const { brackets, activeBracketId, settings, teams, selectedMatchId, setActiveBracket, getActiveBracket, showHistory, toggleShowHistory } = useBracketStore();
   const activeBracket = getActiveBracket();
   const rounds = activeBracket?.rounds ?? [];
-  const speedMap = {
-    slow: 0.6,
-    normal: 0.3,
-    fast: 0.15,
-  };
+  const animationDuration = 0.15; // Fast animations
 
   const { totalMatches, completedMatches, upcomingMatch } = useMemo(() => {
     const matches = rounds.flatMap((round) => round.matches);
@@ -63,10 +59,38 @@ export default function BracketContainer() {
     [rounds]
   );
 
+  // Filter matches based on showHistory state
+  const filteredRounds = useMemo(() => {
+    return indexedRounds.map(({ round, roundIndex }) => {
+      if (showHistory) {
+        // Show all matches when history is visible
+        return { round, roundIndex };
+      } else {
+        // Only show matches without winner
+        return {
+          round: {
+            ...round,
+            matches: round.matches.filter(match => match.winnerIndex === undefined)
+          },
+          roundIndex
+        };
+      }
+    }).filter(({ round }) => round.matches.length > 0); // Remove rounds with no visible matches
+  }, [indexedRounds, showHistory]);
+
   const displayedRounds =
     focusedRoundIndex !== null
-      ? indexedRounds.filter(({ roundIndex }) => roundIndex === focusedRoundIndex)
-      : indexedRounds;
+      ? filteredRounds.filter(({ roundIndex }) => roundIndex === focusedRoundIndex)
+      : filteredRounds;
+
+  // Get all completed matches for history section
+  const historyMatches = useMemo(() => {
+    return rounds.flatMap((round, roundIndex) =>
+      round.matches
+        .filter(match => match.winnerIndex !== undefined)
+        .map(match => ({ match, roundIndex, roundName: round.name }))
+    );
+  }, [rounds]);
 
   const toggleRoundFocus = (roundIndex: number) => {
     setFocusedRoundIndex((current) =>
@@ -78,22 +102,22 @@ export default function BracketContainer() {
     switch (settings.theme) {
       case 'retro':
         return {
-          background: `linear-gradient(135deg, ${settings.backgroundColor} 0%, #1A2335 100%)`,
+          backgroundColor: settings.backgroundColor,
           fontFamily: 'monospace',
         };
       case 'futuristic':
         return {
-          background: `linear-gradient(135deg, ${settings.backgroundColor} 0%, #1A2335 100%)`,
+          backgroundColor: settings.backgroundColor,
           fontFamily: 'sans-serif',
         };
       case 'sporty':
         return {
-          background: `linear-gradient(135deg, ${settings.backgroundColor} 0%, #1A2335 100%)`,
+          backgroundColor: settings.backgroundColor,
           fontFamily: 'Arial, sans-serif',
         };
       default:
         return {
-          background: settings.backgroundColor,
+          backgroundColor: settings.backgroundColor,
         };
     }
   };
@@ -111,13 +135,6 @@ export default function BracketContainer() {
             backgroundColor: '#1A2335',
           }}
         >
-          <motion.div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 opacity-70"
-            style={{
-              background: `radial-gradient(circle at 10% 20%, ${settings.primaryColor}40 0%, transparent 55%), radial-gradient(circle at 90% 20%, ${settings.secondaryColor}35 0%, transparent 50%), radial-gradient(circle at 50% 80%, ${settings.secondaryColor}25 0%, transparent 55%)`,
-            }}
-          />
           <div className="relative flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
             <div className="max-w-xl space-y-4">
               <p className="text-xs uppercase tracking-[0.4em] text-white/50">
@@ -281,7 +298,7 @@ export default function BracketContainer() {
                       className="h-full rounded-full"
                       style={{
                         width: `${round.completionPct}%`,
-                        backgroundImage: `linear-gradient(90deg, ${settings.primaryColor}, ${settings.secondaryColor})`,
+                        backgroundColor: settings.primaryColor,
                       }}
                     />
                   </div>
@@ -334,47 +351,112 @@ export default function BracketContainer() {
             <div
               className="h-2 w-12 rounded-full"
               style={{
-                backgroundImage: `linear-gradient(90deg, ${settings.primaryColor}, ${settings.secondaryColor})`,
+                backgroundColor: settings.primaryColor,
               }}
             />
             Live bracket overview
           </div>
           
-          {brackets.length > 1 && (
-            <div className="flex gap-2 flex-wrap">
-              {brackets.map((bracket) => (
-                <button
-                  key={bracket.id}
-                  onClick={() => setActiveBracket(bracket.id)}
-                  className={`rounded-lg border-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-all ${
-                    activeBracketId === bracket.id
-                      ? 'border-[#482CFF] bg-[#482CFF]/20 shadow-lg shadow-[#482CFF]/20'
-                      : 'border-[#2D3E5A] bg-[#1A2335] hover:border-[#482CFF]/50'
-                  }`}
-                  style={{
-                    color: '#F2F1EF',
-                  }}
+          <div className="flex gap-2 flex-wrap items-center">
+            {historyMatches.length > 0 && (
+              <button
+                type="button"
+                onClick={toggleShowHistory}
+                className={`rounded-lg border-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-all flex items-center gap-2 ${
+                  showHistory
+                    ? 'border-[#482CFF] bg-[#482CFF]/20 shadow-lg shadow-[#482CFF]/20'
+                    : 'border-[#2D3E5A] bg-[#1A2335] hover:border-[#482CFF]/50'
+                }`}
+                style={{
+                  color: '#F2F1EF',
+                }}
+              >
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
                 >
-                  {bracket.name}
-                </button>
-              ))}
-            </div>
-          )}
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                Geschiedenis {historyMatches.length > 0 && `(${historyMatches.length})`}
+              </button>
+            )}
+            
+            {brackets.length > 1 && (
+              <div className="flex gap-2 flex-wrap">
+                {brackets.map((bracket) => (
+                  <button
+                    key={bracket.id}
+                    onClick={() => setActiveBracket(bracket.id)}
+                    className={`rounded-lg border-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-all ${
+                      activeBracketId === bracket.id
+                        ? 'border-[#482CFF] bg-[#482CFF]/20 shadow-lg shadow-[#482CFF]/20'
+                        : 'border-[#2D3E5A] bg-[#1A2335] hover:border-[#482CFF]/50'
+                    }`}
+                    style={{
+                      color: '#F2F1EF',
+                    }}
+                  >
+                    {bracket.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Bracket Container */}
-        <section
-          id="bracket-container"
-          className="rounded-3xl border p-3 sm:p-4"
-          style={{
-            borderColor: '#2D3E5A',
-            backgroundColor: settings.bracketStyle === 'playful'
-              ? `${settings.backgroundColor}90`
-              : '#0B1220',
-          }}
-        >
-          {/* Desktop & tablet columns */}
-          <div className="hidden gap-6 lg:grid lg:grid-flow-col lg:auto-cols-[minmax(280px,1fr)]">
+        {teams.length === 0 ? (
+          <section
+            id="bracket-container"
+            className="rounded-3xl border p-8 sm:p-12"
+            style={{
+              borderColor: '#2D3E5A',
+              backgroundColor: '#1A2335',
+            }}
+          >
+            <div className="flex flex-col items-center justify-center text-center space-y-4 py-12">
+              <svg
+                className="h-16 w-16"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                style={{ color: settings.primaryColor, opacity: 0.5 }}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                />
+              </svg>
+              <h2 className="text-2xl font-bold" style={{ color: '#F2F1EF' }}>
+                Nog geen teams toegevoegd
+              </h2>
+              <p className="text-sm max-w-md" style={{ color: '#F2F1EF', opacity: 0.7 }}>
+                Voeg teams toe via de admin pagina om een bracket te genereren. Ga naar <span className="font-semibold" style={{ color: settings.primaryColor }}>/admin</span> om te beginnen.
+              </p>
+            </div>
+          </section>
+        ) : (
+          <section
+            id="bracket-container"
+            className="rounded-3xl border p-3 sm:p-4"
+            style={{
+              borderColor: '#2D3E5A',
+              backgroundColor: settings.bracketStyle === 'playful'
+                ? `${settings.backgroundColor}90`
+                : '#0B1220',
+            }}
+          >
+            {/* Desktop & tablet columns */}
+            <div className="hidden gap-6 lg:grid lg:grid-flow-col lg:auto-cols-[minmax(360px,1fr)]">
             <AnimatePresence mode="popLayout">
               {displayedRounds.map(({ round, roundIndex }) => {
                 const matchesCompleted = round.matches.filter(
@@ -387,11 +469,11 @@ export default function BracketContainer() {
                     initial={{ opacity: 0, y: 30 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -30 }}
-                    transition={{ duration: speedMap[settings.animationSpeed] }}
+                    transition={{ duration: animationDuration }}
                     className="relative flex h-full flex-col rounded-3xl border-2 p-4 shadow-xl shadow-black/20"
                     style={{
                       borderColor: '#2D3E5A',
-                      background: `linear-gradient(145deg, rgba(26,35,53,0.95) 0%, ${settings.backgroundColor} 100%)`,
+                      backgroundColor: '#1A2335',
                     }}
                   >
                     <header className="mb-4 border-b pb-3" style={{ borderColor: '#2D3E5A' }}>
@@ -495,6 +577,61 @@ export default function BracketContainer() {
             })}
           </div>
         </section>
+        )}
+
+        {/* History Section */}
+        {showHistory && historyMatches.length > 0 && (
+          <section
+            className="rounded-3xl border p-4 sm:p-6"
+            style={{
+              borderColor: '#2D3E5A',
+              backgroundColor: '#0F172A80',
+            }}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div className="space-y-1">
+                <p className="text-xs uppercase tracking-[0.35em]" style={{ color: '#F2F1EF', opacity: 0.6 }}>
+                  Match geschiedenis
+                </p>
+                <h3 className="text-lg font-semibold" style={{ color: '#F2F1EF' }}>
+                  Gespeelde wedstrijden
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={toggleShowHistory}
+                className="rounded-lg border px-4 py-2 text-xs font-semibold uppercase tracking-widest transition"
+                style={{
+                  borderColor: '#2D3E5A',
+                  backgroundColor: '#1A2335',
+                  color: '#F2F1EF',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = settings.primaryColor;
+                  e.currentTarget.style.backgroundColor = `${settings.primaryColor}20`;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = '#2D3E5A';
+                  e.currentTarget.style.backgroundColor = '#1A2335';
+                }}
+              >
+                Verberg
+              </button>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <AnimatePresence mode="popLayout">
+                {historyMatches.map(({ match, roundIndex, roundName }) => (
+                  <MatchCard
+                    key={`history-${match.id}`}
+                    match={match}
+                    roundIndex={roundIndex}
+                  />
+                ))}
+              </AnimatePresence>
+            </div>
+          </section>
+        )}
       </div>
 
       <MatchDetailsPanel />
