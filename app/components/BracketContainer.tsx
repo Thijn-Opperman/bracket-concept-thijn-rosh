@@ -4,10 +4,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useBracketStore } from '@/app/store/bracketStore';
 import MatchCard from './MatchCard';
 import MatchDetailsPanel from './MatchDetailsPanel';
+import BracketOverview from './BracketOverview';
 import { useMemo, useState } from 'react';
 
 export default function BracketContainer() {
-  const { brackets, activeBracketId, settings, teams, selectedMatchId, setActiveBracket, getActiveBracket, showHistory, toggleShowHistory } = useBracketStore();
+  const { brackets, activeBracketId, settings, teams, selectedMatchId, setActiveBracket, getActiveBracket, viewMode, setViewMode } = useBracketStore();
   const activeBracket = getActiveBracket();
   const rounds = activeBracket?.rounds ?? [];
   const animationDuration = 0.15; // Fast animations
@@ -59,35 +60,62 @@ export default function BracketContainer() {
     [rounds]
   );
 
-  // Filter matches based on showHistory state
+  // Filter matches based on viewMode
   const filteredRounds = useMemo(() => {
     return indexedRounds.map(({ round, roundIndex }) => {
-      if (showHistory) {
-        // Show all matches when history is visible
-        return { round, roundIndex };
-      } else {
-        // Only show matches without winner
-        return {
-          round: {
-            ...round,
-            matches: round.matches.filter(match => match.winnerIndex === undefined)
-          },
-          roundIndex
-        };
+      let filteredMatches = round.matches;
+      
+      switch (viewMode) {
+        case 'completed':
+          // Only show completed matches
+          filteredMatches = round.matches.filter(match => match.winnerIndex !== undefined);
+          break;
+        case 'scheduled':
+          // Only show scheduled matches (have startTime and no winner)
+          filteredMatches = round.matches.filter(match => 
+            match.startTime && match.winnerIndex === undefined
+          );
+          break;
+        case 'draws':
+          // Show all matches for bracket overview
+          filteredMatches = round.matches;
+          break;
+        case 'live':
+        default:
+          // Show only matches without winner (default/live view)
+          filteredMatches = round.matches.filter(match => match.winnerIndex === undefined);
+          break;
       }
+      
+      return {
+        round: {
+          ...round,
+          matches: filteredMatches
+        },
+        roundIndex
+      };
     }).filter(({ round }) => round.matches.length > 0); // Remove rounds with no visible matches
-  }, [indexedRounds, showHistory]);
+  }, [indexedRounds, viewMode]);
 
   const displayedRounds =
     focusedRoundIndex !== null
       ? filteredRounds.filter(({ roundIndex }) => roundIndex === focusedRoundIndex)
       : filteredRounds;
 
-  // Get all completed matches for history section
+  // Get all completed matches
   const historyMatches = useMemo(() => {
     return rounds.flatMap((round, roundIndex) =>
       round.matches
         .filter(match => match.winnerIndex !== undefined)
+        .map(match => ({ match, roundIndex, roundName: round.name }))
+    );
+  }, [rounds]);
+
+  // Get all scheduled matches
+  const scheduledMatches = useMemo(() => {
+    return rounds.flatMap((round, roundIndex) =>
+      round.matches
+        .filter(match => match.startTime && match.winnerIndex === undefined)
         .map(match => ({ match, roundIndex, roundName: round.name }))
     );
   }, [rounds]);
@@ -148,8 +176,6 @@ export default function BracketContainer() {
                   'Winner takes all. Eén misstap en je ligt eruit.'}
                 {settings.bracketType === 'double-elimination' &&
                   'Tweede kansen bestaan. Vecht je terug door de losers bracket.'}
-                {settings.bracketType === 'round-robin' &&
-                  'Iedereen speelt tegen iedereen. Consistentie beslist.'}
               </p>
               {upcomingMatch && (
                 <div 
@@ -240,14 +266,14 @@ export default function BracketContainer() {
               </div>
             </div>
 
-            <div className="mt-4 flex gap-3 overflow-x-auto pb-1">
+            <div className="mt-4 flex flex-wrap gap-2 overflow-x-hidden">
               {roundSummaries.map((round) => {
                 const isActive = focusedRoundIndex === round.roundIndex;
 
                 return (
                 <article
                   key={round.id}
-                  className={`min-w-[220px] flex-1 rounded-2xl border p-4 transition-all ${
+                  className={`min-w-[140px] flex-1 rounded-xl border p-3 transition-all ${
                     isActive ? 'ring-2 ring-offset-2 ring-offset-transparent' : ''
                   }`}
                   role="button"
@@ -265,10 +291,10 @@ export default function BracketContainer() {
                     color: '#F2F1EF',
                   }}
                 >
-                  <div className="flex items-center justify-between text-xs uppercase tracking-widest">
-                    <span>{round.name}</span>
+                  <div className="flex items-center justify-between text-[10px] uppercase tracking-wider">
+                    <span className="truncate">{round.name}</span>
                     <span
-                      className="flex items-center gap-1 text-[10px]"
+                      className="ml-1 flex items-center gap-1 text-[9px] flex-shrink-0"
                       style={{
                         color:
                           round.status === 'complete'
@@ -278,7 +304,7 @@ export default function BracketContainer() {
                               : '#f87171',
                       }}
                     >
-                      <span className="h-2 w-2 rounded-full"
+                      <span className="h-1.5 w-1.5 rounded-full"
                         style={{
                           backgroundColor:
                             round.status === 'complete'
@@ -293,7 +319,7 @@ export default function BracketContainer() {
                       {round.status === 'upcoming' && 'Komend'}
                     </span>
                   </div>
-                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
+                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
                     <div
                       className="h-full rounded-full"
                       style={{
@@ -302,7 +328,7 @@ export default function BracketContainer() {
                       }}
                     />
                   </div>
-                  <p className="mt-2 text-sm" style={{ color: '#F2F1EF', opacity: 0.7 }}>
+                  <p className="mt-1.5 text-[10px]" style={{ color: '#F2F1EF', opacity: 0.7 }}>
                     {round.completed}/{round.total} wedstrijden
                   </p>
                 </article>
@@ -358,12 +384,40 @@ export default function BracketContainer() {
           </div>
           
           <div className="flex gap-2 flex-wrap items-center">
+            <button
+              type="button"
+              onClick={() => setViewMode('live')}
+              className={`rounded-lg border-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-all flex items-center gap-2 ${
+                viewMode === 'live'
+                  ? 'border-[#482CFF] bg-[#482CFF]/20 shadow-lg shadow-[#482CFF]/20'
+                  : 'border-[#2D3E5A] bg-[#1A2335] hover:border-[#482CFF]/50'
+              }`}
+              style={{
+                color: '#F2F1EF',
+              }}
+            >
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M13 10V3L4 14h7v7l9-11h-7z"
+                />
+              </svg>
+              Live
+            </button>
+            
             {historyMatches.length > 0 && (
               <button
                 type="button"
-                onClick={toggleShowHistory}
+                onClick={() => setViewMode('completed')}
                 className={`rounded-lg border-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-all flex items-center gap-2 ${
-                  showHistory
+                  viewMode === 'completed'
                     ? 'border-[#482CFF] bg-[#482CFF]/20 shadow-lg shadow-[#482CFF]/20'
                     : 'border-[#2D3E5A] bg-[#1A2335] hover:border-[#482CFF]/50'
                 }`}
@@ -381,12 +435,68 @@ export default function BracketContainer() {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
                   />
                 </svg>
-                Geschiedenis {historyMatches.length > 0 && `(${historyMatches.length})`}
+                Completed ({historyMatches.length})
               </button>
             )}
+            
+            <button
+              type="button"
+              onClick={() => setViewMode('scheduled')}
+              className={`rounded-lg border-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-all flex items-center gap-2 ${
+                viewMode === 'scheduled'
+                  ? 'border-[#482CFF] bg-[#482CFF]/20 shadow-lg shadow-[#482CFF]/20'
+                  : 'border-[#2D3E5A] bg-[#1A2335] hover:border-[#482CFF]/50'
+              }`}
+              style={{
+                color: '#F2F1EF',
+              }}
+            >
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                />
+              </svg>
+              Scheduled {scheduledMatches.length > 0 && `(${scheduledMatches.length})`}
+            </button>
+            
+            <button
+              type="button"
+              onClick={() => setViewMode('draws')}
+              className={`rounded-lg border-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-all flex items-center gap-2 ${
+                viewMode === 'draws'
+                  ? 'border-[#482CFF] bg-[#482CFF]/20 shadow-lg shadow-[#482CFF]/20'
+                  : 'border-[#2D3E5A] bg-[#1A2335] hover:border-[#482CFF]/50'
+              }`}
+              style={{
+                color: '#F2F1EF',
+              }}
+            >
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 20l-5.447-2.724A2 2 0 013 15.382V5.618a2 2 0 011.553-1.954l5-1.111a2 2 0 011.106 0l5 1.111A2 2 0 0117 5.618v9.764a2 2 0 01-1.553 1.954L9 20z"
+                />
+              </svg>
+              Draws
+            </button>
             
             {brackets.length > 1 && (
               <div className="flex gap-2 flex-wrap">
@@ -443,6 +553,19 @@ export default function BracketContainer() {
                 Voeg teams toe via de admin pagina om een bracket te genereren. Ga naar <span className="font-semibold" style={{ color: settings.primaryColor }}>/admin</span> om te beginnen.
               </p>
             </div>
+          </section>
+        ) : viewMode === 'draws' ? (
+          <section
+            id="bracket-container"
+            className="rounded-3xl border p-6 sm:p-8"
+            style={{
+              borderColor: '#2D3E5A',
+              backgroundColor: settings.bracketStyle === 'playful'
+                ? `${settings.backgroundColor}90`
+                : '#0B1220',
+            }}
+          >
+            <BracketOverview />
           </section>
         ) : (
           <section
@@ -579,59 +702,6 @@ export default function BracketContainer() {
         </section>
         )}
 
-        {/* History Section */}
-        {showHistory && historyMatches.length > 0 && (
-          <section
-            className="rounded-3xl border p-4 sm:p-6"
-            style={{
-              borderColor: '#2D3E5A',
-              backgroundColor: '#0F172A80',
-            }}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <div className="space-y-1">
-                <p className="text-xs uppercase tracking-[0.35em]" style={{ color: '#F2F1EF', opacity: 0.6 }}>
-                  Match geschiedenis
-                </p>
-                <h3 className="text-lg font-semibold" style={{ color: '#F2F1EF' }}>
-                  Gespeelde wedstrijden
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={toggleShowHistory}
-                className="rounded-lg border px-4 py-2 text-xs font-semibold uppercase tracking-widest transition"
-                style={{
-                  borderColor: '#2D3E5A',
-                  backgroundColor: '#1A2335',
-                  color: '#F2F1EF',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = settings.primaryColor;
-                  e.currentTarget.style.backgroundColor = `${settings.primaryColor}20`;
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = '#2D3E5A';
-                  e.currentTarget.style.backgroundColor = '#1A2335';
-                }}
-              >
-                Verberg
-              </button>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              <AnimatePresence mode="popLayout">
-                {historyMatches.map(({ match, roundIndex, roundName }) => (
-                  <MatchCard
-                    key={`history-${match.id}`}
-                    match={match}
-                    roundIndex={roundIndex}
-                  />
-                ))}
-              </AnimatePresence>
-            </div>
-          </section>
-        )}
       </div>
 
       <MatchDetailsPanel />

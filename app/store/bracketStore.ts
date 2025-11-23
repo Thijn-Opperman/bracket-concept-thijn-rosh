@@ -11,6 +11,7 @@ import type {
   Round,
   BracketType,
   BracketGroup,
+  ViewMode,
 } from '@/app/types/bracket';
 import { generateBracket } from '@/app/utils/bracketGenerator';
 
@@ -48,6 +49,7 @@ interface BracketStore extends BracketState {
   getActiveBracket: () => BracketGroup | undefined;
   setAdminMode: (value: boolean) => void;
   toggleShowHistory: () => void;
+  setViewMode: (mode: ViewMode) => void;
 }
 
 const mergeTeamIntoMatchSlot = (
@@ -79,6 +81,7 @@ export const useBracketStore = create<BracketStore>()(
         selectedMatchId: null,
         isAdminMode: false,
         showHistory: false,
+        viewMode: 'live' as ViewMode,
         setSettings: (newSettings) => {
           const currentSettings = get().settings;
           const updatedSettings = { ...currentSettings, ...newSettings };
@@ -399,6 +402,9 @@ export const useBracketStore = create<BracketStore>()(
         },
         toggleShowHistory: () => {
           set((state) => ({ showHistory: !state.showHistory }));
+        },
+        setViewMode: (mode) => {
+          set({ viewMode: mode });
         },
       };
     },

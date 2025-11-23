@@ -69,7 +69,7 @@ export type Round = {
   matches: Match[];
 };
 
-export type BracketType = 'single-elimination' | 'double-elimination' | 'round-robin';
+export type BracketType = 'single-elimination' | 'double-elimination';
 
 export type BracketStyle = 'classic' | 'modern' | 'playful';
 
@@ -91,6 +91,8 @@ export type BracketGroup = {
   rounds: Round[];
 };
 
+export type ViewMode = 'live' | 'completed' | 'scheduled' | 'draws';
+
 export type BracketState = {
   brackets: BracketGroup[];
   activeBracketId: string | null;
@@ -99,5 +101,6 @@ export type BracketState = {
   selectedMatchId: string | null;
   isAdminMode: boolean;
   showHistory: boolean;
+  viewMode: ViewMode;
 };
 

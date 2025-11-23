@@ -17,12 +17,6 @@ export function generateBracket(teams: Team[], type: BracketType): BracketGroup[
       }];
     case 'double-elimination':
       return generateDoubleElimination(teams);
-    case 'round-robin':
-      return [{
-        id: 'main',
-        name: 'Hoofdbracket',
-        rounds: generateRoundRobin(teams),
-      }];
     default:
       return [{
         id: 'main',
@@ -152,70 +146,6 @@ function generateDoubleElimination(teams: Team[]): BracketGroup[] {
       rounds: losersRounds,
     },
   ];
-}
-
-function generateRoundRobin(teams: Team[]): Round[] {
-  const rounds: Round[] = [];
-  const numTeams = teams.length;
-  
-  // Round-robin: each team plays every other team once
-  // For even number of teams: (n-1) rounds, n/2 matches per round
-  // For odd number of teams: n rounds, (n-1)/2 matches per round
-  
-  const numRounds = numTeams % 2 === 0 ? numTeams - 1 : numTeams;
-  const matchesPerRound = Math.floor(numTeams / 2);
-  
-  // Generate all possible pairings
-  const allPairings: [Team, Team][] = [];
-  for (let i = 0; i < teams.length; i++) {
-    for (let j = i + 1; j < teams.length; j++) {
-      allPairings.push([teams[i], teams[j]]);
-    }
-  }
-  
-  // Distribute pairings across rounds (simplified algorithm)
-  for (let round = 0; round < numRounds; round++) {
-    const matches: Match[] = [];
-    const usedTeams = new Set<string>();
-    
-    for (let match = 0; match < matchesPerRound; match++) {
-      const pairing = allPairings.find(
-        ([a, b]) => !usedTeams.has(a.id) && !usedTeams.has(b.id)
-      );
-      
-      if (pairing) {
-        const startTime = getMatchStartTime(round, match);
-        const court = getCourtName(round, match);
-        matches.push({
-          id: `rr-r${round}-m${match}`,
-          roundIndex: round,
-          matchIndex: match,
-          teams: pairing,
-          startTime,
-          court,
-          details: createDefaultMatchDetails({
-            matchId: `rr-r${round}-m${match}`,
-            roundName: `Ronde ${round + 1}`,
-            startTime,
-            court,
-            teamA: pairing[0],
-            teamB: pairing[1],
-          }),
-        });
-        usedTeams.add(pairing[0].id);
-        usedTeams.add(pairing[1].id);
-      }
-    }
-    
-    if (matches.length > 0) {
-      rounds.push({
-        name: `Ronde ${round + 1}`,
-        matches,
-      });
-    }
-  }
-  
-  return rounds;
 }
 
 function getRoundName(numTeams: number, roundIndex: number): string {

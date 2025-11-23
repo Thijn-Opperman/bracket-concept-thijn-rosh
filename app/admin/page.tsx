@@ -312,11 +312,6 @@ export default function AdminPage() {
                   label: 'Double Elimination',
                   description: 'Tweede kansen voor verliezers',
                 },
-                {
-                  value: 'round-robin' as BracketType,
-                  label: 'Round Robin',
-                  description: 'Iedereen speelt tegen iedereen',
-                },
               ].map((type) => (
                 <button
                   key={type.value}
