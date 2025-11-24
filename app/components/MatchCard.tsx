@@ -12,6 +12,21 @@ interface MatchCardProps {
   roundIndex: number;
 }
 
+const hexToRgba = (hex: string, alpha = 1) => {
+  let sanitized = hex.replace('#', '');
+  if (sanitized.length === 3) {
+    sanitized = sanitized
+      .split('')
+      .map((char) => char + char)
+      .join('');
+  }
+  const bigint = Number.parseInt(sanitized, 16);
+  const r = (bigint >> 16) & 255;
+  const g = (bigint >> 8) & 255;
+  const b = bigint & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
 export default function MatchCard({ match, roundIndex }: MatchCardProps) {
   const { settings, setSelectedMatch, getActiveBracket } = useBracketStore();
   const activeBracket = getActiveBracket();
@@ -106,29 +121,24 @@ export default function MatchCard({ match, roundIndex }: MatchCardProps) {
     }
   };
 
-  const getStyleColors = () => {
-    switch (settings.bracketStyle) {
-      case 'classic':
-        return {
-          borderColor: '#2D3E5A',
-          backgroundColor: '#1A2335',
-        };
-      case 'modern':
-        return {
-          borderColor: '#2D3E5A',
-          backgroundColor: '#1A2335',
-        };
-      case 'playful':
-        return {
-          borderColor: '#2D3E5A',
-          backgroundColor: '#1A2335',
-        };
-      default:
-        return {
-          borderColor: '#2D3E5A',
-          backgroundColor: '#1A2335',
-        };
-    }
+  const getCardVisuals = () => {
+    const baseBackground = settings.backgroundColor ?? '#0F172A';
+    const secondary = settings.secondaryColor ?? '#2D3E5A';
+    const primary = settings.primaryColor ?? '#482CFF';
+
+    return {
+      borderColor: hexToRgba(secondary, 0.5),
+      background: `linear-gradient(135deg, ${hexToRgba(baseBackground, 0.9)}, ${hexToRgba(
+        secondary,
+        0.25
+      )})`,
+      boxShadow:
+        match.winnerIndex !== undefined
+          ? `0 0 0 1px ${hexToRgba(primary, 0.7)}, 0 18px 40px rgba(0,0,0,0.45)`
+          : '0 14px 28px rgba(3,7,18,0.45)',
+      accentBorder: hexToRgba(primary, 0.7),
+      accentFill: hexToRgba(primary, 0.15),
+    };
   };
 
   const getThemeClasses = () => {
@@ -151,6 +161,8 @@ export default function MatchCard({ match, roundIndex }: MatchCardProps) {
     setIsExpanded(!isExpanded);
   };
 
+  const visuals = getCardVisuals();
+
   return (
     <motion.article
       initial={{ opacity: 0, y: 20 }}
@@ -162,18 +174,16 @@ export default function MatchCard({ match, roundIndex }: MatchCardProps) {
           : 'hover:shadow-2xl hover:shadow-black/30'
       }`}
       style={{
-        ...getStyleColors(),
-        ...(match.winnerIndex !== undefined && {
-          borderColor: settings.primaryColor,
-          boxShadow: `0 0 0 2px ${settings.primaryColor}, 0 10px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.1)`,
-        }),
+        borderColor: visuals.borderColor,
+        background: visuals.background,
+        boxShadow: visuals.boxShadow,
       }}
     >
       <motion.div
         layout
         className="absolute inset-x-0 top-0 h-1.5"
         style={{
-          backgroundColor: settings.primaryColor,
+          backgroundColor: match.winnerIndex !== undefined ? visuals.accentBorder : settings.primaryColor,
         }}
       />
       {match.winnerIndex !== undefined && (
@@ -380,10 +390,9 @@ export default function MatchCard({ match, roundIndex }: MatchCardProps) {
                         : 'opacity-60'
                     }`}
                     style={{
-                      borderColor: match.winnerIndex === 0 ? settings.primaryColor : '#2D3E5A',
-                      backgroundColor: match.winnerIndex === 0 
-                        ? `${settings.primaryColor}20` 
-                        : '#0F172A',
+                      borderColor: match.winnerIndex === 0 ? visuals.accentBorder : '#2D3E5A',
+                      backgroundColor:
+                        match.winnerIndex === 0 ? visuals.accentFill : '#0F172A',
                       color: match.winnerIndex === 0 ? settings.primaryColor : '#F2F1EF',
                     }}
                   >
@@ -419,10 +428,9 @@ export default function MatchCard({ match, roundIndex }: MatchCardProps) {
                         : 'opacity-60'
                     }`}
                     style={{
-                      borderColor: match.winnerIndex === 1 ? settings.primaryColor : '#2D3E5A',
-                      backgroundColor: match.winnerIndex === 1 
-                        ? `${settings.primaryColor}20` 
-                        : '#0F172A',
+                      borderColor: match.winnerIndex === 1 ? visuals.accentBorder : '#2D3E5A',
+                      backgroundColor:
+                        match.winnerIndex === 1 ? visuals.accentFill : '#0F172A',
                       color: match.winnerIndex === 1 ? settings.primaryColor : '#F2F1EF',
                     }}
                   >

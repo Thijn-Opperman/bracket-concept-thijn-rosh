@@ -331,6 +331,47 @@ export default function AdminPage() {
             </div>
           </section>
 
+          {/* Bracket Colors */}
+          <section className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl shadow-black/30 backdrop-blur">
+            <div>
+              <p className="text-xs uppercase tracking-[0.35em] text-white/60">
+                Bracket kleuren
+              </p>
+              <h2 className="text-2xl font-semibold text-white">Kleurenpalet</h2>
+              <p className="mt-1 text-xs text-white/60">
+                Pas de kleuren live aan. De wijzigingen zijn direct zichtbaar in de bracket.
+              </p>
+            </div>
+
+            <div className="mt-4 space-y-4">
+              {( [
+                {
+                  key: 'primaryColor' as const,
+                  label: 'Primaire kleur',
+                  description: 'Accent voor titels en progressie balken.',
+                },
+                {
+                  key: 'secondaryColor' as const,
+                  label: 'Secundaire kleur',
+                  description: 'Ondersteunende accenten en badges.',
+                },
+                {
+                  key: 'backgroundColor' as const,
+                  label: 'Achtergrondkleur',
+                  description: 'Basis achtergrond voor de bracket.',
+                },
+              ]).map((colorSetting) => (
+                <ColorPickerField
+                  key={colorSetting.key}
+                  label={colorSetting.label}
+                  description={colorSetting.description}
+                  value={settings[colorSetting.key]}
+                  onChange={(value) => setSettings({ [colorSetting.key]: value })}
+                />
+              ))}
+            </div>
+          </section>
+
         </aside>
 
         {/* Right column: Team management and match management */}
@@ -985,7 +1026,7 @@ function Field({
   label: string;
   value: string;
   placeholder?: string;
-  type?: 'text' | 'number';
+  type?: 'text' | 'number' | 'color';
   onChange: (value: string) => void;
 }) {
   return (
@@ -1059,6 +1100,60 @@ function SelectField({
         ))}
       </select>
     </label>
+  );
+}
+
+function ColorPickerField({
+  label,
+  value,
+  onChange,
+  description,
+}: {
+  label: string;
+  value: string;
+  description?: string;
+  onChange: (value: string) => void;
+}) {
+  const sanitizedValue = /^#([0-9a-f]{3}){1,2}$/i.test(value) ? value : '#000000';
+
+  const handleInput = (nextValue: string) => {
+    const formatted = nextValue.startsWith('#') ? nextValue : `#${nextValue}`;
+    onChange(formatted.slice(0, 7));
+  };
+
+  return (
+    <div className="rounded-2xl border border-white/10 bg-black/30 p-4 text-sm">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-xs uppercase tracking-[0.35em] text-white/60">{label}</p>
+          {description && <p className="text-[11px] text-white/50">{description}</p>}
+        </div>
+        <span className="font-mono text-xs text-white/70">{sanitizedValue.toUpperCase()}</span>
+      </div>
+      <div className="mt-3 flex items-center gap-3">
+        <input
+          type="color"
+          value={sanitizedValue}
+          onChange={(event) => onChange(event.target.value)}
+          className="h-12 w-12 cursor-pointer rounded-xl border border-white/10 bg-transparent p-0"
+          aria-label={`${label} kleur selectie`}
+        />
+        <input
+          type="text"
+          value={value}
+          onChange={(event) => handleInput(event.target.value)}
+          className="flex-1 rounded-xl border border-white/10 bg-black/40 px-4 py-2 font-mono text-sm uppercase tracking-[0.2em] text-white outline-none transition focus:border-white/40"
+          placeholder="#000000"
+        />
+        <div
+          className="h-12 w-12 rounded-xl border border-white/10"
+          style={{
+            background: sanitizedValue,
+          }}
+          aria-hidden="true"
+        />
+      </div>
+    </div>
   );
 }
 

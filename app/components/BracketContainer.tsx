@@ -5,13 +5,34 @@ import { useBracketStore } from '@/app/store/bracketStore';
 import MatchCard from './MatchCard';
 import MatchDetailsPanel from './MatchDetailsPanel';
 import BracketOverview from './BracketOverview';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+
+function useStoreHydrationReady() {
+  const [hasHydrated, setHasHydrated] = useState(false);
+
+  useEffect(() => {
+    const unsub = useBracketStore.persist.onFinishHydration(() => {
+      setHasHydrated(true);
+    });
+
+    if (useBracketStore.persist.hasHydrated()) {
+      setHasHydrated(true);
+    }
+
+    return () => {
+      unsub?.();
+    };
+  }, []);
+
+  return hasHydrated;
+}
 
 export default function BracketContainer() {
   const { brackets, activeBracketId, settings, teams, selectedMatchId, setActiveBracket, getActiveBracket, viewMode, setViewMode } = useBracketStore();
   const activeBracket = getActiveBracket();
   const rounds = activeBracket?.rounds ?? [];
   const animationDuration = 0.15; // Fast animations
+  const isHydrated = useStoreHydrationReady();
 
   const { totalMatches, completedMatches, upcomingMatch } = useMemo(() => {
     const matches = rounds.flatMap((round) => round.matches);
@@ -150,9 +171,24 @@ export default function BracketContainer() {
     }
   };
 
+  if (!isHydrated) {
+    return (
+      <div
+        className="relative flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-8"
+        style={getThemeStyles()}
+      >
+        <div className="mx-auto max-w-7xl space-y-6">
+          <div className="h-48 rounded-3xl border border-white/10 bg-white/5 animate-pulse" />
+          <div className="h-72 rounded-3xl border border-white/10 bg-white/5 animate-pulse" />
+          <div className="h-96 rounded-3xl border border-white/10 bg-white/5 animate-pulse" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
-      className="relative flex-1 overflow-auto p-4 lg:p-8"
+      className="relative flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-8"
       style={getThemeStyles()}
     >
       <div className="mx-auto max-w-7xl space-y-8">
@@ -273,9 +309,7 @@ export default function BracketContainer() {
                 return (
                 <article
                   key={round.id}
-                  className={`min-w-[140px] flex-1 rounded-xl border p-3 transition-all ${
-                    isActive ? 'ring-2 ring-offset-2 ring-offset-transparent' : ''
-                  }`}
+                  className="min-w-[140px] flex-1 rounded-xl border p-3 transition-all"
                   role="button"
                   tabIndex={0}
                   onClick={() => toggleRoundFocus(round.roundIndex)}
@@ -286,9 +320,15 @@ export default function BracketContainer() {
                     }
                   }}
                   style={{
-                    borderColor: '#2D3E5A',
-                    backgroundColor: isActive ? '#13213C' : '#0B1220',
+                    borderColor: isActive ? settings.primaryColor : '#2D3E5A',
+                    background:
+                      isActive
+                        ? 'linear-gradient(135deg, rgba(72,44,255,0.2), rgba(20,27,44,0.95))'
+                        : '#0B1220',
                     color: '#F2F1EF',
+                    boxShadow: isActive
+                      ? '0 0 0 1px rgba(72,44,255,0.4), 0 12px 30px rgba(0,0,0,0.35)'
+                      : '0 6px 18px rgba(0,0,0,0.25)',
                   }}
                 >
                   <div className="flex items-center justify-between text-[10px] uppercase tracking-wider">
@@ -579,7 +619,7 @@ export default function BracketContainer() {
             }}
           >
             {/* Desktop & tablet columns */}
-            <div className="hidden gap-6 lg:grid lg:grid-flow-col lg:auto-cols-[minmax(360px,1fr)]">
+            <div className="hidden gap-6 lg:grid lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             <AnimatePresence mode="popLayout">
               {displayedRounds.map(({ round, roundIndex }) => {
                 const matchesCompleted = round.matches.filter(
