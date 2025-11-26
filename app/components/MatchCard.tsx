@@ -155,8 +155,9 @@ export default function MatchCard({ match, roundIndex }: MatchCardProps) {
 
   const accentColor = match.details?.highlightColor ?? settings.secondaryColor;
 
-  const toggleExpand = (event: MouseEvent) => {
-    event.stopPropagation();
+  const toggleExpand = (event?: React.MouseEvent | React.KeyboardEvent) => {
+    event?.stopPropagation();
+    event?.preventDefault();
     setIsExpanded(!isExpanded);
   };
 
@@ -222,8 +223,7 @@ export default function MatchCard({ match, roundIndex }: MatchCardProps) {
         tabIndex={0}
         onKeyDown={(event) => {
           if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            toggleExpand(event as any);
+            toggleExpand(event);
           }
         }}
       >

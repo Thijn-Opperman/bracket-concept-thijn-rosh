@@ -5,7 +5,7 @@ import { useBracketStore } from '@/app/store/bracketStore';
 
 export default function TestPage() {
   const [status, setStatus] = useState('Klaar om te testen');
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const store = useBracketStore();
 
@@ -28,7 +28,7 @@ export default function TestPage() {
 
       // Test 2: Set tournament ID
       store.setTournamentId(tournamentId);
-      setResult(prev => ({ ...prev, step: 2, success: true }));
+      setResult((prev: Record<string, unknown> | null) => ({ ...(prev || {}), step: 2, success: true }));
 
       // Test 3: Verify tournament exists in database
       setStatus('Verifiëren tournament in database...');
@@ -47,7 +47,7 @@ export default function TestPage() {
       }
 
       console.log('✅ Tournament verified in database:', tournament);
-      setResult(prev => ({ ...prev, step: 3, success: true, tournamentName: tournament.name }));
+      setResult((prev: Record<string, unknown> | null) => ({ ...(prev || {}), step: 3, success: true, tournamentName: tournament.name }));
       
       // Small delay to ensure database is ready
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -63,8 +63,8 @@ export default function TestPage() {
         countryCode: 'NL',
       });
 
-      setResult(prev => ({ 
-        ...prev, 
+      setResult((prev: Record<string, unknown> | null) => ({ 
+        ...(prev || {}), 
         step: 4, 
         success: true, 
         teamsCount: store.teams.length,
@@ -72,8 +72,9 @@ export default function TestPage() {
       }));
       setStatus('✅ Alles werkt!');
 
-    } catch (err: any) {
-      setError(err.message || 'Onbekende error');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Onbekende error';
+      setError(errorMessage);
       setStatus('❌ Error opgetreden');
       console.error('Test error:', err);
     }
@@ -130,11 +131,19 @@ export default function TestPage() {
             <pre style={{ marginTop: '0.5rem', fontSize: '0.9em' }}>
               {JSON.stringify(result, null, 2)}
             </pre>
-            {result.tournamentId && (
-              <p style={{ marginTop: '1rem' }}>
-                <strong>Tournament ID:</strong> {result.tournamentId}
-              </p>
-            )}
+            {(() => {
+              if (result && typeof result === 'object' && 'tournamentId' in result) {
+                const tournamentId = (result as { tournamentId?: unknown }).tournamentId;
+                if (tournamentId) {
+                  return (
+                    <p style={{ marginTop: '1rem' }}>
+                      <strong>Tournament ID:</strong> {String(tournamentId)}
+                    </p>
+                  );
+                }
+              }
+              return null;
+            })()}
           </div>
         )}
 

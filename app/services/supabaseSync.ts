@@ -89,10 +89,12 @@ export async function syncTeamToSupabase(
       console.log('✅ Team updated in Supabase');
       return team.id;
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('❌ Error syncing team to Supabase:', error);
-    console.error('Error message:', error?.message);
-    console.error('Error stack:', error?.stack);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    console.error('Error message:', errorMessage);
+    console.error('Error stack:', errorStack);
     // Re-throw so we can see the error in the UI
     throw error;
   }
@@ -124,7 +126,7 @@ export async function syncMatchToSupabase(
     winnerIndex?: number;
     startTime?: string;
     court?: string;
-    details?: any;
+    details?: Partial<import('@/app/types/bracket').MatchDetails>;
   }
 ): Promise<boolean> {
   try {

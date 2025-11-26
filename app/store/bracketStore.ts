@@ -453,11 +453,13 @@ export const useBracketStore = create<BracketStore>()(
                 );
                 console.log('✅ Brackets generated');
               }
-            } catch (error: any) {
+            } catch (error: unknown) {
               console.error('❌ Error syncing team to Supabase:', error);
-              console.error('Error details:', error?.message, error?.stack);
+              const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+              const errorStack = error instanceof Error ? error.stack : undefined;
+              console.error('Error details:', errorMessage, errorStack);
               // Show error to user
-              alert(`Error syncing team to Supabase: ${error?.message || 'Unknown error'}. Check console for details.`);
+              alert(`Error syncing team to Supabase: ${errorMessage}. Check console for details.`);
             }
           } else {
             console.warn('⚠️ No tournamentId set, team not synced to Supabase');

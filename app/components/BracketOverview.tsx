@@ -56,7 +56,7 @@ function RoundColumn({
   roundIndex: number;
   displayIndex: number;
   isLastRound: boolean;
-  settings: any;
+  settings: import('@/app/types/bracket').BracketSettings;
   setSelectedMatch: (id: string | null) => void;
 }) {
   

@@ -436,8 +436,8 @@ export default function AdminPage() {
           alert(errorMsg);
           onError?.(errorMsg);
         }
-      } catch (error: any) {
-        const errorMsg = `Fout bij verwerken van afbeelding: ${error.message || 'Onbekende fout'}`;
+      } catch (error: unknown) {
+        const errorMsg = `Fout bij verwerken van afbeelding: ${error instanceof Error ? error.message : 'Onbekende fout'}`;
         console.error('Error processing file:', error);
         alert(errorMsg);
         onError?.(errorMsg);
@@ -447,8 +447,8 @@ export default function AdminPage() {
     // Start reading
     try {
       reader.readAsDataURL(file);
-    } catch (error: any) {
-      const errorMsg = `Fout bij starten van bestand lezen: ${error.message || 'Onbekende fout'}`;
+    } catch (error: unknown) {
+      const errorMsg = `Fout bij starten van bestand lezen: ${error instanceof Error ? error.message : 'Onbekende fout'}`;
       console.error('Error starting file read:', error);
       alert(errorMsg);
       onError?.(errorMsg);

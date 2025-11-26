@@ -134,7 +134,7 @@ export default function MatchDetailsPanel() {
                       </p>
                     )}
                     {team.motto && (
-                      <p className="text-xs text-white/70 italic mt-2">"{team.motto}"</p>
+                      <p className="text-xs text-white/70 italic mt-2">&ldquo;{team.motto}&rdquo;</p>
                     )}
                     {team.twitchLink && (
                       <a
