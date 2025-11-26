@@ -3,7 +3,6 @@
 import { motion } from 'framer-motion';
 import { useBracketStore } from '@/app/store/bracketStore';
 import type { Team } from '@/app/types/bracket';
-import type { ChangeEvent, MouseEvent, CSSProperties } from 'react';
 
 interface TeamSlotProps {
   team: Team | null;
@@ -18,22 +17,8 @@ export default function TeamSlot({
   teamIndex,
   isWinner = false,
 }: TeamSlotProps) {
-  const { settings, setWinner, setTeamScore, isAdminMode } = useBracketStore();
+  const { settings } = useBracketStore();
   const animationDuration = 0.15; // Fast animations
-
-  const handleClick = (event: MouseEvent<HTMLDivElement>) => {
-    if (!isAdminMode) return;
-    event.stopPropagation();
-    if (!team) return;
-    setWinner(matchId, teamIndex);
-  };
-
-  const handleScoreChange = (event: ChangeEvent<HTMLInputElement>) => {
-    if (!isAdminMode) return;
-    const value = event.target.value;
-    const parsed = value === '' ? 0 : Math.max(0, parseInt(value, 10) || 0);
-    setTeamScore(matchId, teamIndex, parsed);
-  };
 
   if (!team) {
     return (
@@ -57,10 +42,7 @@ export default function TeamSlot({
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: 20 }}
       transition={{ duration: animationDuration }}
-      onClick={handleClick}
-      className={`group relative flex h-12 items-center justify-between rounded-lg border px-3 transition-all ${
-        isAdminMode && team ? 'cursor-pointer' : 'cursor-default'
-      }`}
+      className="group relative flex h-12 items-center justify-between rounded-lg border px-3 transition-all cursor-default"
       style={{
         borderColor: isWinner ? settings.primaryColor : '#2D3E5A',
         backgroundColor: isWinner
@@ -85,34 +67,12 @@ export default function TeamSlot({
       </div>
 
       <div className="flex items-center gap-2">
-        {isAdminMode ? (
-          <input
-            type="number"
-            min="0"
-            max="999"
-            value={team.score ?? ''}
-            onChange={handleScoreChange}
-            onClick={(event) => event.stopPropagation()}
-            onFocus={(event) => event.stopPropagation()}
-            placeholder="0"
-            className="h-8 w-16 rounded-lg border-2 px-2 text-center text-sm font-bold transition-all focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-offset-transparent"
-            style={
-              {
-                borderColor: '#2D3E5A',
-                backgroundColor: '#111827',
-                color: '#F2F1EF',
-                '--tw-ring-color': settings.secondaryColor,
-              } as CSSProperties & Record<string, string>
-            }
-          />
-        ) : (
-          <div
-            className="min-w-[3rem] rounded-md border border-white/10 px-3 py-1 text-center text-sm font-bold text-white"
-            style={{ backgroundColor: '#0F172A' }}
-          >
-            {team.score ?? '—'}
-          </div>
-        )}
+        <div
+          className="min-w-[3rem] rounded-md border border-white/10 px-3 py-1 text-center text-sm font-bold text-white"
+          style={{ backgroundColor: '#0F172A' }}
+        >
+          {team.score ?? '—'}
+        </div>
         {isWinner && (
           <motion.div
             initial={{ scale: 0 }}

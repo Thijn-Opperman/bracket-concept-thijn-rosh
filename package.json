@@ -9,7 +9,10 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.7.0",
+    "@supabase/supabase-js": "^2.84.0",
     "canvas-confetti": "^1.9.4",
+    "color-contrast-checker": "^2.1.0",
     "framer-motion": "^12.23.24",
     "html-to-image": "^1.11.13",
     "jspdf": "^3.0.3",

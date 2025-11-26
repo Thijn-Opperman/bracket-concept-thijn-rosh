@@ -2,7 +2,6 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Match } from '@/app/types/bracket';
-import TeamSlot from './TeamSlot';
 import { useBracketStore } from '@/app/store/bracketStore';
 import type { MouseEvent } from 'react';
 import { useMemo, useState, useEffect } from 'react';

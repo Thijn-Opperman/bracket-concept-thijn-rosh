@@ -14,6 +14,7 @@ import type {
   ViewMode,
 } from '@/app/types/bracket';
 import { generateBracket } from '@/app/utils/bracketGenerator';
+import * as supabaseSync from '@/app/services/supabaseSync';
 
 const defaultSettings: BracketSettings = {
   bracketType: 'single-elimination',
@@ -23,6 +24,9 @@ const defaultSettings: BracketSettings = {
   backgroundColor: '#111827', // donkere achtergrond
   bracketStyle: 'modern',
   theme: 'sporty',
+  tournamentSeries: 'Grand Arena Series',
+  tournamentTitle: 'Ultimate Bracket Showdown',
+  tournamentDescription: 'Winner takes all. Eén misstap en je ligt eruit.',
 };
 
 interface BracketStore extends BracketState {
@@ -30,8 +34,8 @@ interface BracketStore extends BracketState {
   setWinner: (matchId: string, winnerIndex: number) => void;
   setTeamScore: (matchId: string, teamIndex: number, score: number) => void;
   setMatchTeam: (matchId: string, teamIndex: number, teamId: string | null) => void;
-  initializeBracket: (teams: Team[]) => void;
-  resetBracket: () => void;
+  initializeBracket: (teams: Team[]) => Promise<void>;
+  resetBracket: () => Promise<void>;
   addTeam: (team: Team) => void;
   removeTeam: (teamId: string) => void;
   updateTeam: (teamId: string, updates: Partial<Team>) => void;
@@ -47,9 +51,13 @@ interface BracketStore extends BracketState {
   getMatchById: (matchId: string) => Match | undefined;
   setActiveBracket: (bracketId: string) => void;
   getActiveBracket: () => BracketGroup | undefined;
-  setAdminMode: (value: boolean) => void;
   toggleShowHistory: () => void;
   setViewMode: (mode: ViewMode) => void;
+  // Supabase functions
+  setTournamentId: (tournamentId: string | null) => void;
+  loadFromSupabase: (tournamentId: string) => Promise<boolean>;
+  createTournamentInSupabase: () => Promise<string | null>;
+  syncToSupabase: () => Promise<void>;
 }
 
 const mergeTeamIntoMatchSlot = (
@@ -79,12 +87,14 @@ export const useBracketStore = create<BracketStore>()(
         teams: initialTeams,
         settings: defaultSettings,
         selectedMatchId: null,
-        isAdminMode: false,
         showHistory: false,
         viewMode: 'live' as ViewMode,
-        setSettings: (newSettings) => {
+        tournamentId: null,
+        isSyncing: false,
+        setSettings: async (newSettings) => {
           const currentSettings = get().settings;
           const updatedSettings = { ...currentSettings, ...newSettings };
+          const { tournamentId } = get();
           
           // If bracketType changed, regenerate bracket with existing teams
           if (newSettings.bracketType !== undefined) {
@@ -102,11 +112,37 @@ export const useBracketStore = create<BracketStore>()(
               activeBracketId: newBrackets[0]?.id ?? null,
               selectedMatchId: null,
             });
+
+            // Sync to Supabase if tournamentId exists
+            if (tournamentId && teams.length > 0) {
+              try {
+                await supabaseSync.syncSettingsToSupabase(tournamentId, updatedSettings);
+                if (newBrackets.length > 0) {
+                  await supabaseSync.generateAndSyncBracketsToSupabase(
+                    tournamentId,
+                    teams,
+                    bracketType
+                  );
+                }
+              } catch (error) {
+                console.error('Error syncing settings to Supabase:', error);
+              }
+            }
           } else {
             set({ settings: updatedSettings });
+            
+            // Sync to Supabase if tournamentId exists
+            if (tournamentId) {
+              try {
+                await supabaseSync.syncSettingsToSupabase(tournamentId, updatedSettings);
+              } catch (error) {
+                console.error('Error syncing settings to Supabase:', error);
+              }
+            }
           }
         },
-        setWinner: (matchId, winnerIndex) => {
+        setWinner: async (matchId, winnerIndex) => {
+          const { tournamentId } = get();
           const { brackets } = get();
           
           // Find the match in all brackets
@@ -191,8 +227,44 @@ export const useBracketStore = create<BracketStore>()(
           });
           
           set({ brackets: updatedBrackets });
+
+          // Sync to Supabase if tournamentId exists
+          if (tournamentId) {
+            try {
+              // Sync the current match
+              const updatedMatch = updatedBrackets[foundBracketIndex]?.rounds[matchRoundIndex]?.matches[matchIndex];
+              if (updatedMatch) {
+                await supabaseSync.syncMatchToSupabase(matchId, {
+                  teamAId: updatedMatch.teams[0]?.id || null,
+                  teamBId: updatedMatch.teams[1]?.id || null,
+                  teamAScore: updatedMatch.teams[0]?.score,
+                  teamBScore: updatedMatch.teams[1]?.score,
+                  winnerIndex: updatedMatch.winnerIndex,
+                });
+              }
+
+              // Also sync the next match if winner was propagated
+              if (matchRoundIndex < updatedBrackets[foundBracketIndex]?.rounds.length - 1) {
+                const nextRound = updatedBrackets[foundBracketIndex]?.rounds[matchRoundIndex + 1];
+                const nextMatchIndex = Math.floor(matchIndex / 2);
+                const nextMatch = nextRound?.matches[nextMatchIndex];
+                if (nextMatch) {
+                  await supabaseSync.syncMatchToSupabase(nextMatch.id, {
+                    teamAId: nextMatch.teams[0]?.id || null,
+                    teamBId: nextMatch.teams[1]?.id || null,
+                    teamAScore: nextMatch.teams[0]?.score,
+                    teamBScore: nextMatch.teams[1]?.score,
+                    winnerIndex: nextMatch.winnerIndex,
+                  });
+                }
+              }
+            } catch (error) {
+              console.error('Error syncing winner to Supabase:', error);
+            }
+          }
         },
-        setTeamScore: (matchId, teamIndex, score) => {
+        setTeamScore: async (matchId, teamIndex, score) => {
+          const { tournamentId } = get();
           const { brackets } = get();
           const updatedBrackets = brackets.map((bracket) => ({
             ...bracket,
@@ -214,8 +286,26 @@ export const useBracketStore = create<BracketStore>()(
             })),
           }));
           set({ brackets: updatedBrackets });
+
+          // Sync to Supabase if tournamentId exists
+          if (tournamentId) {
+            try {
+              const match = get().getMatchById(matchId);
+              if (match) {
+                await supabaseSync.syncMatchToSupabase(matchId, {
+                  teamAId: match.teams[0]?.id || null,
+                  teamBId: match.teams[1]?.id || null,
+                  teamAScore: match.teams[0]?.score,
+                  teamBScore: match.teams[1]?.score,
+                });
+              }
+            } catch (error) {
+              console.error('Error syncing match to Supabase:', error);
+            }
+          }
         },
-        setMatchTeam: (matchId, teamIndex, teamId) => {
+        setMatchTeam: async (matchId, teamIndex, teamId) => {
+          const { tournamentId } = get();
           const { brackets, teams } = get();
           const teamToAssign = teamId ? teams.find((t) => t.id === teamId) ?? null : null;
           
@@ -243,9 +333,27 @@ export const useBracketStore = create<BracketStore>()(
             })),
           }));
           set({ brackets: updatedBrackets });
+
+          // Sync to Supabase if tournamentId exists
+          if (tournamentId) {
+            try {
+              const match = get().getMatchById(matchId);
+              if (match) {
+                await supabaseSync.syncMatchToSupabase(matchId, {
+                  teamAId: match.teams[0]?.id || null,
+                  teamBId: match.teams[1]?.id || null,
+                  teamAScore: match.teams[0]?.score,
+                  teamBScore: match.teams[1]?.score,
+                  winnerIndex: match.winnerIndex,
+                });
+              }
+            } catch (error) {
+              console.error('Error syncing match to Supabase:', error);
+            }
+          }
         },
-        initializeBracket: (teams) => {
-          const { settings } = get();
+        initializeBracket: async (teams) => {
+          const { tournamentId, settings } = get();
           const brackets = generateBracket(teams, settings.bracketType);
           set({ 
             teams, 
@@ -253,9 +361,27 @@ export const useBracketStore = create<BracketStore>()(
             activeBracketId: brackets[0]?.id ?? null,
             selectedMatchId: null 
           });
+
+          // Sync to Supabase if tournamentId exists
+          if (tournamentId && teams.length > 0) {
+            try {
+              // Sync teams first
+              for (const team of teams) {
+                await supabaseSync.syncTeamToSupabase(tournamentId, team, true);
+              }
+              // Then sync brackets
+              await supabaseSync.generateAndSyncBracketsToSupabase(
+                tournamentId,
+                teams,
+                settings.bracketType
+              );
+            } catch (error) {
+              console.error('Error syncing initialized bracket to Supabase:', error);
+            }
+          }
         },
-        resetBracket: () => {
-          const { settings, teams } = get();
+        resetBracket: async () => {
+          const { tournamentId, settings, teams } = get();
           // Reset bracket with existing teams (don't generate new teams)
           const brackets = teams.length > 0 
             ? generateBracket(teams, settings.bracketType)
@@ -265,8 +391,22 @@ export const useBracketStore = create<BracketStore>()(
             activeBracketId: brackets[0]?.id ?? null,
             selectedMatchId: null 
           });
+
+          // Sync to Supabase if tournamentId exists
+          if (tournamentId && teams.length > 0) {
+            try {
+              await supabaseSync.generateAndSyncBracketsToSupabase(
+                tournamentId,
+                teams,
+                settings.bracketType
+              );
+            } catch (error) {
+              console.error('Error syncing reset bracket to Supabase:', error);
+            }
+          }
         },
-        addTeam: (team) => {
+        addTeam: async (team) => {
+          const { tournamentId } = get();
           set((state) => {
             const updatedTeams = [...state.teams, team];
             const updatedSettings = {
@@ -285,8 +425,46 @@ export const useBracketStore = create<BracketStore>()(
               selectedMatchId: null,
             };
           });
+
+          // Sync to Supabase if tournamentId exists
+          if (tournamentId) {
+            try {
+              console.log('Syncing team to Supabase...', { teamId: team.id, tournamentId });
+              const generatedTeamId = await supabaseSync.syncTeamToSupabase(tournamentId, team, true);
+              console.log('✅ Team synced successfully with ID:', generatedTeamId);
+              
+              // Update team ID if Supabase generated a new one
+              if (generatedTeamId && generatedTeamId !== team.id) {
+                const { teams } = get();
+                const updatedTeams = teams.map(t => 
+                  t.id === team.id ? { ...t, id: generatedTeamId } : t
+                );
+                set({ teams: updatedTeams });
+                console.log('✅ Team ID updated to:', generatedTeamId);
+              }
+              
+              const { teams: currentTeams, settings } = get();
+              if (currentTeams.length > 0) {
+                console.log('Generating brackets...');
+                await supabaseSync.generateAndSyncBracketsToSupabase(
+                  tournamentId,
+                  currentTeams,
+                  settings.bracketType
+                );
+                console.log('✅ Brackets generated');
+              }
+            } catch (error: any) {
+              console.error('❌ Error syncing team to Supabase:', error);
+              console.error('Error details:', error?.message, error?.stack);
+              // Show error to user
+              alert(`Error syncing team to Supabase: ${error?.message || 'Unknown error'}. Check console for details.`);
+            }
+          } else {
+            console.warn('⚠️ No tournamentId set, team not synced to Supabase');
+          }
         },
-        removeTeam: (teamId) => {
+        removeTeam: async (teamId) => {
+          const { tournamentId } = get();
           set((state) => {
             const updatedTeams = state.teams.filter((t) => t.id !== teamId);
             const updatedSettings = {
@@ -305,8 +483,26 @@ export const useBracketStore = create<BracketStore>()(
               selectedMatchId: null,
             };
           });
+
+          // Sync to Supabase if tournamentId exists
+          if (tournamentId) {
+            try {
+              await supabaseSync.deleteTeamFromSupabase(teamId);
+              const { teams, settings } = get();
+              if (teams.length > 0) {
+                await supabaseSync.generateAndSyncBracketsToSupabase(
+                  tournamentId,
+                  teams,
+                  settings.bracketType
+                );
+              }
+            } catch (error) {
+              console.error('Error deleting team from Supabase:', error);
+            }
+          }
         },
-        updateTeam: (teamId, updates) => {
+        updateTeam: async (teamId, updates) => {
+          const { tournamentId } = get();
           set((state) => {
             const updatedTeams = state.teams.map((team) =>
               team.id === teamId ? { ...team, ...updates } : team
@@ -333,8 +529,40 @@ export const useBracketStore = create<BracketStore>()(
               brackets: updatedBrackets,
             };
           });
+
+          // Sync to Supabase if tournamentId exists
+          if (tournamentId) {
+            try {
+              const updatedTeam = get().teams.find((t) => t.id === teamId);
+              if (updatedTeam) {
+                // Sync the team
+                await supabaseSync.syncTeamToSupabase(tournamentId, updatedTeam, false);
+                
+                // Also sync all matches that contain this team (team data might have changed)
+                const { brackets: currentBrackets } = get();
+                for (const bracket of currentBrackets) {
+                  for (const round of bracket.rounds) {
+                    for (const match of round.matches) {
+                      if (match.teams[0]?.id === teamId || match.teams[1]?.id === teamId) {
+                        await supabaseSync.syncMatchToSupabase(match.id, {
+                          teamAId: match.teams[0]?.id || null,
+                          teamBId: match.teams[1]?.id || null,
+                          teamAScore: match.teams[0]?.score,
+                          teamBScore: match.teams[1]?.score,
+                          winnerIndex: match.winnerIndex,
+                        });
+                      }
+                    }
+                  }
+                }
+              }
+            } catch (error) {
+              console.error('Error syncing team to Supabase:', error);
+            }
+          }
         },
-        updateMatchDetails: (matchId, updates) => {
+        updateMatchDetails: async (matchId, updates) => {
+          const { tournamentId } = get();
           set((state) => ({
             brackets: state.brackets.map((bracket) => ({
               ...bracket,
@@ -374,6 +602,22 @@ export const useBracketStore = create<BracketStore>()(
               })),
             })),
           }));
+
+          // Sync to Supabase if tournamentId exists
+          if (tournamentId) {
+            try {
+              const match = get().getMatchById(matchId);
+              if (match) {
+                await supabaseSync.syncMatchToSupabase(matchId, {
+                  startTime: match.startTime,
+                  court: match.court,
+                  details: match.details,
+                });
+              }
+            } catch (error) {
+              console.error('Error syncing match details to Supabase:', error);
+            }
+          }
         },
         setSelectedMatch: (matchId) => {
           set({ selectedMatchId: matchId });
@@ -397,14 +641,95 @@ export const useBracketStore = create<BracketStore>()(
           const { brackets, activeBracketId } = get();
           return brackets.find(b => b.id === activeBracketId);
         },
-        setAdminMode: (value) => {
-          set({ isAdminMode: value });
-        },
         toggleShowHistory: () => {
           set((state) => ({ showHistory: !state.showHistory }));
         },
         setViewMode: (mode) => {
           set({ viewMode: mode });
+        },
+        // Supabase functions
+        setTournamentId: (tournamentId) => {
+          set({ tournamentId });
+        },
+        loadFromSupabase: async (tournamentId) => {
+          set({ isSyncing: true });
+          try {
+            const data = await supabaseSync.loadTournamentFromSupabase(tournamentId);
+            if (data) {
+              set({
+                settings: data.settings,
+                teams: data.teams,
+                brackets: data.brackets,
+                activeBracketId: data.brackets[0]?.id ?? null,
+                tournamentId,
+                isSyncing: false,
+              });
+              return true;
+            }
+            set({ isSyncing: false });
+            return false;
+          } catch (error) {
+            console.error('Error loading from Supabase:', error);
+            set({ isSyncing: false });
+            return false;
+          }
+        },
+        createTournamentInSupabase: async () => {
+          const { settings } = get();
+          set({ isSyncing: true });
+          try {
+            const tournamentId = await supabaseSync.createTournamentInSupabase(settings);
+            if (tournamentId) {
+              set({ tournamentId, isSyncing: false });
+              return tournamentId;
+            }
+            set({ isSyncing: false });
+            return null;
+          } catch (error) {
+            console.error('Error creating tournament in Supabase:', error);
+            set({ isSyncing: false });
+            return null;
+          }
+        },
+        syncToSupabase: async () => {
+          const { tournamentId, settings, teams, brackets } = get();
+          if (!tournamentId) return;
+
+          set({ isSyncing: true });
+          try {
+            // Sync settings
+            await supabaseSync.syncSettingsToSupabase(tournamentId, settings);
+
+            // Sync teams (simplified - in production you'd want to track which teams changed)
+            // For now, we'll just ensure all teams exist
+            for (const team of teams) {
+              await supabaseSync.syncTeamToSupabase(tournamentId, team, false);
+            }
+
+            // Sync matches (simplified - in production you'd track changes)
+            // This is a basic implementation - you might want to optimize this
+            for (const bracket of brackets) {
+              for (const round of bracket.rounds) {
+                for (const match of round.matches) {
+                  await supabaseSync.syncMatchToSupabase(match.id, {
+                    teamAId: match.teams[0]?.id || null,
+                    teamBId: match.teams[1]?.id || null,
+                    teamAScore: match.teams[0]?.score,
+                    teamBScore: match.teams[1]?.score,
+                    winnerIndex: match.winnerIndex,
+                    startTime: match.startTime,
+                    court: match.court,
+                    details: match.details,
+                  });
+                }
+              }
+            }
+
+            set({ isSyncing: false });
+          } catch (error) {
+            console.error('Error syncing to Supabase:', error);
+            set({ isSyncing: false });
+          }
         },
       };
     },

@@ -61,7 +61,7 @@ function RoundColumn({
 }) {
   
   return (
-    <div className="flex flex-col justify-center min-w-[240px]">
+    <div className="flex flex-col justify-center min-w-[240px] overflow-visible">
       <div className="mb-4 text-center">
         <p className="text-xs uppercase tracking-widest text-white/50 mb-1">
           {round.name}
@@ -69,7 +69,7 @@ function RoundColumn({
         <div className="h-px w-full bg-white/10 mt-2" />
       </div>
       
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4 overflow-visible">
         {round.matches.map((match, matchIndex) => {
           const teamA = match.teams[0];
           const teamB = match.teams[1];
@@ -84,7 +84,7 @@ function RoundColumn({
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: matchIndex * 0.1 }}
-              className="relative"
+              className="relative px-1 overflow-visible"
             >
               <div
                 className="group rounded-xl border-2 p-3 cursor-pointer transition-all hover:scale-[1.02] hover:shadow-lg relative"

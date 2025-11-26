@@ -83,6 +83,9 @@ export type BracketSettings = {
   backgroundColor: string;
   bracketStyle: BracketStyle;
   theme: Theme;
+  tournamentSeries?: string;
+  tournamentTitle?: string;
+  tournamentDescription?: string;
 };
 
 export type BracketGroup = {
@@ -99,8 +102,9 @@ export type BracketState = {
   teams: Team[];
   settings: BracketSettings;
   selectedMatchId: string | null;
-  isAdminMode: boolean;
   showHistory: boolean;
   viewMode: ViewMode;
+  tournamentId: string | null; // Supabase tournament ID
+  isSyncing: boolean; // Track if currently syncing with Supabase
 };
 

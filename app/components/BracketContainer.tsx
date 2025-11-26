@@ -202,16 +202,16 @@ export default function BracketContainer() {
           <div className="relative flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
             <div className="max-w-xl space-y-4">
               <p className="text-xs uppercase tracking-[0.4em] text-white/50">
-                Grand Arena Series
+                {settings.tournamentSeries || 'Grand Arena Series'}
             </p>
               <h1 className="text-3xl font-bold text-white sm:text-5xl">
-                Ultimate Bracket Showdown
+                {settings.tournamentTitle || 'Ultimate Bracket Showdown'}
               </h1>
               <p className="text-sm text-white/70 sm:text-base">
-                {settings.bracketType === 'single-elimination' &&
-                  'Winner takes all. Eén misstap en je ligt eruit.'}
-                {settings.bracketType === 'double-elimination' &&
-                  'Tweede kansen bestaan. Vecht je terug door de losers bracket.'}
+                {settings.tournamentDescription ??
+                  (settings.bracketType === 'single-elimination'
+                    ? 'Winner takes all. Eén misstap en je ligt eruit.'
+                    : 'Tweede kansen bestaan. Vecht je terug door de losers bracket.')}
               </p>
               {upcomingMatch && (
                 <div 
@@ -293,11 +293,11 @@ export default function BracketContainer() {
                 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest"
                 style={{ color: '#F2F1EF', opacity: 0.8 }}
               >
-                <span className="inline-flex h-2 w-2 rounded-full bg-[#10b981]" />
+                <span className="inline-flex h-2 w-2 rounded-full bg-[#9ca3af]" />
                 Afgerond
-                <span className="inline-flex h-2 w-2 rounded-full bg-[#facc15]" />
+                <span className="inline-flex h-2 w-2 rounded-full bg-[#ef4444]" />
                 Live
-                <span className="inline-flex h-2 w-2 rounded-full bg-[#f87171]" />
+                <span className="inline-flex h-2 w-2 rounded-full bg-[#10b981]" />
                 Komend
               </div>
             </div>
@@ -338,20 +338,20 @@ export default function BracketContainer() {
                       style={{
                         color:
                           round.status === 'complete'
-                            ? '#10b981'
+                            ? '#9ca3af'
                             : round.status === 'in-progress'
-                              ? '#fcd34d'
-                              : '#f87171',
+                              ? '#ef4444'
+                              : '#10b981',
                       }}
                     >
                       <span className="h-1.5 w-1.5 rounded-full"
                         style={{
                           backgroundColor:
                             round.status === 'complete'
-                              ? '#10b981'
+                              ? '#9ca3af'
                               : round.status === 'in-progress'
-                                ? '#fcd34d'
-                                : '#f87171',
+                                ? '#ef4444'
+                                : '#10b981',
                         }}
                       />
                       {round.status === 'complete' && 'Klaar'}
