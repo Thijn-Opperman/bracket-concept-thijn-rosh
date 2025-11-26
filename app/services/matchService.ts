@@ -16,7 +16,9 @@ import {
 } from '@/app/utils/supabaseTransformers';
 import { getTeam } from './teamService';
 
-const supabase = createClient();
+function getSupabase() {
+  return createClient();
+}
 
 export async function updateMatch(
   matchId: string,
@@ -42,6 +44,7 @@ export async function updateMatch(
   if (updates.startTime !== undefined) updateData.start_time = updates.startTime || null;
   if (updates.court !== undefined) updateData.court = updates.court || null;
 
+  const supabase = getSupabase();
   const { error } = await supabase
     .from('matches')
     .update(updateData)
@@ -58,6 +61,7 @@ export async function updateMatchDetails(
   details: Partial<MatchDetails>
 ): Promise<void> {
   // Check if match_details already exists
+  const supabase = getSupabase();
   const { data: existingDetails } = await supabase
     .from('match_details')
     .select('*')
@@ -80,7 +84,8 @@ export async function updateMatchDetails(
 
   if (existingDetails) {
     // Update existing
-    const { error } = await supabase
+    const supabase2 = getSupabase();
+    const { error } = await supabase2
       .from('match_details')
       .update(detailsData)
       .eq('match_id', matchId);
@@ -96,7 +101,8 @@ export async function updateMatchDetails(
     }
     detailsData.title = details.title;
 
-    const { error } = await supabase
+    const supabase3 = getSupabase();
+    const { error } = await supabase3
       .from('match_details')
       .insert(detailsData);
 
@@ -109,7 +115,8 @@ export async function updateMatchDetails(
   // Update media links if provided
   if (details.streams !== undefined) {
     // Delete existing
-    await supabase.from('match_media_links').delete().eq('match_id', matchId);
+    const supabase4 = getSupabase();
+    await supabase4.from('match_media_links').delete().eq('match_id', matchId);
 
     // Insert new
     if (details.streams.length > 0) {
@@ -120,7 +127,7 @@ export async function updateMatchDetails(
         label: stream.label || null,
       }));
 
-      const { error: linksError } = await supabase
+      const { error: linksError } = await supabase4
         .from('match_media_links')
         .insert(mediaLinksData);
 
@@ -133,7 +140,8 @@ export async function updateMatchDetails(
   // Update sponsors if provided
   if (details.sponsors !== undefined) {
     // Delete existing
-    await supabase.from('match_sponsors').delete().eq('match_id', matchId);
+    const supabase5 = getSupabase();
+    await supabase5.from('match_sponsors').delete().eq('match_id', matchId);
 
     // Insert new
     if (details.sponsors.length > 0) {
@@ -144,7 +152,7 @@ export async function updateMatchDetails(
         logo: sponsor.logo || null,
       }));
 
-      const { error: sponsorsError } = await supabase
+      const { error: sponsorsError } = await supabase5
         .from('match_sponsors')
         .insert(sponsorsData);
 
@@ -156,6 +164,7 @@ export async function updateMatchDetails(
 }
 
 export async function getMatch(matchId: string): Promise<Match | null> {
+  const supabase = getSupabase();
   const { data: matchData, error: matchError } = await supabase
     .from('matches')
     .select('*')
@@ -177,20 +186,23 @@ export async function getMatch(matchId: string): Promise<Match | null> {
   const teamB = match.team_b_id ? await getTeam(match.team_b_id) : null;
 
   // Fetch details
-  const { data: detailsData } = await supabase
+  const supabase2 = getSupabase();
+  const { data: detailsData } = await supabase2
     .from('match_details')
     .select('*')
     .eq('match_id', matchId)
     .single();
 
   // Fetch media links
-  const { data: mediaLinksData } = await supabase
+  const supabase3 = getSupabase();
+  const { data: mediaLinksData } = await supabase3
     .from('match_media_links')
     .select('*')
     .eq('match_id', matchId);
 
   // Fetch sponsors
-  const { data: sponsorsData } = await supabase
+  const supabase4 = getSupabase();
+  const { data: sponsorsData } = await supabase4
     .from('match_sponsors')
     .select('*')
     .eq('match_id', matchId);

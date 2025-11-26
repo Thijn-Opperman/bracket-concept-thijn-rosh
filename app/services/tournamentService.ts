@@ -12,7 +12,9 @@ import {
   type SupabaseTournament,
 } from '@/app/utils/supabaseTransformers';
 
-const supabase = createClient();
+function getSupabase() {
+  return createClient();
+}
 
 export async function createTournament(settings: BracketSettings): Promise<string> {
   const tournamentData = transformSettingsToTournament(settings);
@@ -22,6 +24,7 @@ export async function createTournament(settings: BracketSettings): Promise<strin
   
   console.log('Creating tournament with data:', dataToInsert);
   
+  const supabase = getSupabase();
   const { data, error } = await supabase
     .from('tournaments')
     .insert(dataToInsert)
@@ -43,6 +46,7 @@ export async function createTournament(settings: BracketSettings): Promise<strin
 }
 
 export async function getTournament(tournamentId: string): Promise<BracketSettings | null> {
+  const supabase = getSupabase();
   const { data, error } = await supabase
     .from('tournaments')
     .select('*')
@@ -65,6 +69,7 @@ export async function updateTournament(
   tournamentId: string,
   settings: Partial<BracketSettings>
 ): Promise<void> {
+  const supabase = getSupabase();
   const currentData = await supabase
     .from('tournaments')
     .select('*')
@@ -81,7 +86,8 @@ export async function updateTournament(
   const updatedSettings = { ...currentSettings, ...settings };
   const tournamentData = transformSettingsToTournament(updatedSettings, tournamentId);
 
-  const { error } = await supabase
+  const supabase2 = getSupabase();
+  const { error } = await supabase2
     .from('tournaments')
     .update({
       ...tournamentData,
@@ -96,6 +102,7 @@ export async function updateTournament(
 }
 
 export async function deleteTournament(tournamentId: string): Promise<void> {
+  const supabase = getSupabase();
   const { error } = await supabase
     .from('tournaments')
     .delete()

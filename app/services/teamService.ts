@@ -15,11 +15,14 @@ import {
   type SupabasePlayer,
 } from '@/app/utils/supabaseTransformers';
 
-const supabase = createClient();
+function getSupabase() {
+  return createClient();
+}
 
 export async function createTeam(team: Team, tournamentId: string): Promise<string> {
   // First verify tournament exists
-  const { data: tournament, error: tournamentError } = await supabase
+  const supabaseClient = getSupabase();
+  const { data: tournament, error: tournamentError } = await supabaseClient
     .from('tournaments')
     .select('id')
     .eq('id', tournamentId)
@@ -31,7 +34,8 @@ export async function createTeam(team: Team, tournamentId: string): Promise<stri
     console.error('Error:', tournamentError);
     
     // Try to list all tournaments to help debug
-    const { data: allTournaments } = await supabase
+    const supabaseDebug = getSupabase();
+    const { data: allTournaments } = await supabaseDebug
       .from('tournaments')
       .select('id, name');
     console.error('Available tournaments in database:', allTournaments);
@@ -51,7 +55,8 @@ export async function createTeam(team: Team, tournamentId: string): Promise<stri
   console.log('Tournament ID (verified):', tournamentId);
   console.log('Original team ID (will be replaced):', id);
   
-  const { data, error } = await supabase
+  const supabaseInsert = getSupabase();
+  const { data, error } = await supabaseInsert
     .from('teams')
     .insert(dataToInsert)
     .select('id')
@@ -74,7 +79,8 @@ export async function createTeam(team: Team, tournamentId: string): Promise<stri
       transformPlayerToSupabase(player, data.id)
     );
     
-    const { error: playersError } = await supabase
+    const supabasePlayers = getSupabase();
+    const { error: playersError } = await supabasePlayers
       .from('players')
       .insert(playersData);
 
@@ -88,6 +94,7 @@ export async function createTeam(team: Team, tournamentId: string): Promise<stri
 }
 
 export async function getTeam(teamId: string): Promise<Team | null> {
+  const supabase = getSupabase();
   const { data: teamData, error: teamError } = await supabase
     .from('teams')
     .select('*')
@@ -103,7 +110,8 @@ export async function getTeam(teamId: string): Promise<Team | null> {
   }
 
   // Fetch players
-  const { data: playersData } = await supabase
+  const supabaseClient = getSupabase();
+  const { data: playersData } = await supabaseClient
     .from('players')
     .select('*')
     .eq('team_id', teamId);
@@ -115,6 +123,7 @@ export async function getTeam(teamId: string): Promise<Team | null> {
 }
 
 export async function getTeamsByTournament(tournamentId: string): Promise<Team[]> {
+  const supabase = getSupabase();
   const { data: teamsData, error: teamsError } = await supabase
     .from('teams')
     .select('*')
@@ -132,7 +141,8 @@ export async function getTeamsByTournament(tournamentId: string): Promise<Team[]
 
   // Fetch all players for all teams
   const teamIds = teamsData.map((t) => t.id);
-  const { data: playersData } = await supabase
+  const supabaseClient = getSupabase();
+  const { data: playersData } = await supabaseClient
     .from('players')
     .select('*')
     .in('team_id', teamIds);
@@ -158,7 +168,8 @@ export async function getTeamsByTournament(tournamentId: string): Promise<Team[]
 
 export async function updateTeam(teamId: string, updates: Partial<Team>): Promise<void> {
   // First get tournament_id from database
-  const { data: existingTeam, error: fetchError } = await supabase
+  const supabaseFetch = getSupabase();
+  const { data: existingTeam, error: fetchError } = await supabaseFetch
     .from('teams')
     .select('tournament_id')
     .eq('id', teamId)
@@ -186,7 +197,8 @@ export async function updateTeam(teamId: string, updates: Partial<Team>): Promis
   console.log('Updating team:', { teamId, tournamentId: existingTeam.tournament_id });
   console.log('Update data:', dataToUpdate);
 
-  const { error: teamError } = await supabase
+  const supabaseUpdate = getSupabase();
+  const { error: teamError } = await supabaseUpdate
     .from('teams')
     .update({
       ...dataToUpdate,
@@ -206,7 +218,8 @@ export async function updateTeam(teamId: string, updates: Partial<Team>): Promis
   // Update players if provided
   if (updates.players !== undefined) {
     // Delete existing players
-    await supabase.from('players').delete().eq('team_id', teamId);
+    const supabasePlayers = getSupabase();
+    await supabasePlayers.from('players').delete().eq('team_id', teamId);
 
     // Insert new players
     if (updates.players.length > 0) {
@@ -214,7 +227,7 @@ export async function updateTeam(teamId: string, updates: Partial<Team>): Promis
         transformPlayerToSupabase(player, teamId)
       );
       
-      const { error: playersError } = await supabase
+      const { error: playersError } = await supabasePlayers
         .from('players')
         .insert(playersData);
 
@@ -227,7 +240,8 @@ export async function updateTeam(teamId: string, updates: Partial<Team>): Promis
 
 export async function deleteTeam(teamId: string): Promise<void> {
   // Players will be deleted automatically due to CASCADE
-  const { error } = await supabase
+  const supabaseDelete = getSupabase();
+  const { error } = await supabaseDelete
     .from('teams')
     .delete()
     .eq('id', teamId);

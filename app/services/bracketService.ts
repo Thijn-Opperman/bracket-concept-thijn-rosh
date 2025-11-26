@@ -21,7 +21,9 @@ import {
   type SupabaseMatchSponsor,
 } from '@/app/utils/supabaseTransformers';
 
-const supabase = createClient();
+function getSupabase() {
+  return createClient();
+}
 
 /**
  * Haal volledige bracket structuur op voor een tournament
@@ -30,6 +32,7 @@ export async function getBracketsByTournament(
   tournamentId: string
 ): Promise<BracketGroup[]> {
   // Fetch brackets
+  const supabase = getSupabase();
   const { data: bracketsData, error: bracketsError } = await supabase
     .from('brackets')
     .select('*')
@@ -47,7 +50,8 @@ export async function getBracketsByTournament(
 
   // Fetch all rounds for all brackets
   const bracketIds = bracketsData.map((b) => b.id);
-  const { data: roundsData } = await supabase
+  const supabase2 = getSupabase();
+  const { data: roundsData } = await supabase2
     .from('rounds')
     .select('*')
     .in('bracket_id', bracketIds)
@@ -55,7 +59,8 @@ export async function getBracketsByTournament(
 
   // Fetch all matches for all rounds
   const roundIds = (roundsData || []).map((r) => r.id);
-  const { data: matchesData } = await supabase
+  const supabase3 = getSupabase();
+  const { data: matchesData } = await supabase3
     .from('matches')
     .select('*')
     .in('round_id', roundIds)
@@ -64,15 +69,16 @@ export async function getBracketsByTournament(
   // Fetch all match details, media links, and sponsors
   const matchIds = (matchesData || []).map((m) => m.id);
   
+  const supabase4 = getSupabase();
   const [detailsData, mediaLinksData, sponsorsData] = await Promise.all([
     matchIds.length > 0
-      ? supabase.from('match_details').select('*').in('match_id', matchIds)
+      ? supabase4.from('match_details').select('*').in('match_id', matchIds)
       : { data: [] },
     matchIds.length > 0
-      ? supabase.from('match_media_links').select('*').in('match_id', matchIds)
+      ? supabase4.from('match_media_links').select('*').in('match_id', matchIds)
       : { data: [] },
     matchIds.length > 0
-      ? supabase.from('match_sponsors').select('*').in('match_id', matchIds)
+      ? supabase4.from('match_sponsors').select('*').in('match_id', matchIds)
       : { data: [] },
   ]);
 
@@ -175,12 +181,14 @@ export async function generateAndSaveBrackets(
   );
 
   // Delete existing brackets for this tournament
+  const supabase = getSupabase();
   await supabase.from('brackets').delete().eq('tournament_id', tournamentId);
 
   // Save brackets to database
   for (const bracket of generatedBrackets) {
     // Create bracket
-    const { data: bracketData, error: bracketError } = await supabase
+      const supabase2 = getSupabase();
+      const { data: bracketData, error: bracketError } = await supabase2
       .from('brackets')
       .insert({
         tournament_id: tournamentId,
@@ -200,7 +208,8 @@ export async function generateAndSaveBrackets(
     for (let roundIndex = 0; roundIndex < bracket.rounds.length; roundIndex++) {
       const round = bracket.rounds[roundIndex];
       
-      const { data: roundData, error: roundError } = await supabase
+      const supabase3 = getSupabase();
+      const { data: roundData, error: roundError } = await supabase3
         .from('rounds')
         .insert({
           bracket_id: bracketId,
@@ -221,7 +230,8 @@ export async function generateAndSaveBrackets(
       for (let matchIndex = 0; matchIndex < round.matches.length; matchIndex++) {
         const match = round.matches[matchIndex];
         
-        const { error: matchError } = await supabase
+        const supabase4 = getSupabase();
+        const { error: matchError } = await supabase4
           .from('matches')
           .insert({
             round_id: roundId,
