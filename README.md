@@ -95,18 +95,35 @@ Een Next.js App Router-project voor het ontwerpen, beheren en presenteren van es
 
 ```
 app/
-  page.tsx               # Publieke bracket-landing
-  admin/page.tsx         # Admin console + helper componenten
-  components/            # Bracket UI (MatchCard, TeamSlot, etc.)
-  store/bracketStore.ts  # Zustand store + logica
-  types/bracket.ts       # Type definities
-  utils/                 # Bracket generator & kleurhelpers
-lib/supabase/            # SSR en browser Supabase-clients
-public/                  # Placeholder assets
-eslint.config.mjs        # Next + TypeScript rules
-next.config.ts           # App Router config
-postcss.config.mjs       # Tailwind v4 pipeline
-tsconfig.json            # Strict compiler & path aliases
+  layout.tsx             # App Router rootlayout
+  globals.css            # Tailwind v4 + custom styles
+  favicon.ico
+  page.tsx               # Publieke bracket experience
+  admin/page.tsx         # Volledige admin console
+  components/
+    BracketContainer.tsx
+    BracketOverview.tsx
+    MatchCard.tsx
+    MatchDetailsPanel.tsx
+    TeamSlot.tsx
+  store/
+    bracketStore.ts      # Zustand store + persist logica
+  types/
+    bracket.ts           # Core type definities
+  utils/
+    bracketGenerator.ts  # Bracket generator + defaults
+    colorUtils.ts        # Kleurhelpers & contrast checks
+lib/
+  supabase/
+    client.ts            # Browser client helper
+    server.ts            # SSR client helper
+public/
+  ...                    # Assets / placeholders voor branding
+eslint.config.mjs
+next.config.ts
+postcss.config.mjs
+tsconfig.json
+package.json
 ```
 
 ---
