@@ -1,20 +1,14 @@
 import { createBrowserClient } from "@supabase/ssr";
 
-export function createClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
 
-  if (!url || !key) {
-    console.error('❌ Supabase environment variables missing!');
-    console.error('NEXT_PUBLIC_SUPABASE_URL:', url ? '✅' : '❌ Missing');
-    console.error('NEXT_PUBLIC_SUPABASE_ANON_KEY:', key ? '✅' : '❌ Missing');
-    throw new Error('Supabase environment variables are not set. Check your .env.local file.');
-  }
-
-  try {
-    return createBrowserClient(url, key);
-  } catch (error) {
-    console.error('❌ Error creating Supabase client:', error);
-    throw error;
-  }
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error(
+    "Supabase variabelen ontbreken. Voeg NEXT_PUBLIC_SUPABASE_URL en NEXT_PUBLIC_SUPABASE_ANON_KEY toe aan je environment."
+  );
 }
+
+export const createClient = () => {
+  return createBrowserClient(supabaseUrl, supabaseAnonKey);
+};

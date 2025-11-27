@@ -1,20 +1,17 @@
 'use client';
 
+import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { useBracketStore } from '@/app/store/bracketStore';
 import type { Team } from '@/app/types/bracket';
 
 interface TeamSlotProps {
   team: Team | null;
-  matchId: string;
-  teamIndex: number;
   isWinner?: boolean;
 }
 
 export default function TeamSlot({
   team,
-  matchId,
-  teamIndex,
   isWinner = false,
 }: TeamSlotProps) {
   const { settings } = useBracketStore();
@@ -52,9 +49,12 @@ export default function TeamSlot({
     >
       <div className="flex items-center gap-2 flex-1 min-w-0">
         {team.logo && (
-          <img
+          <Image
             src={team.logo}
             alt={team.name}
+            width={24}
+            height={24}
+            unoptimized
             className="h-6 w-6 rounded-full object-cover"
           />
         )}

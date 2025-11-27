@@ -60,7 +60,6 @@ function generateSingleElimination(teams: Team[]): Round[] {
         startTime,
         court,
         details: createDefaultMatchDetails({
-          matchId: `r${roundIndex}-m${i / 2}`,
           roundName,
           startTime,
           court,
@@ -116,7 +115,6 @@ function generateDoubleElimination(teams: Team[]): BracketGroup[] {
         startTime,
         court,
         details: createDefaultMatchDetails({
-          matchId: `losers-r${i}-m${j}`,
           roundName,
           startTime,
           court,
@@ -183,14 +181,12 @@ function getCourtName(roundIndex: number, matchIndex: number): string {
 }
 
 function createDefaultMatchDetails({
-  matchId,
   roundName,
   startTime,
   court,
   teamA,
   teamB,
 }: {
-  matchId: string;
   roundName: string;
   startTime?: string;
   court?: string;

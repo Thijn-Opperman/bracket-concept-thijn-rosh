@@ -1,51 +1,36 @@
-# Bracket Tournament Applicatie
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-Een moderne bracket tournament applicatie gebouwd met Next.js, React, TypeScript en Supabase.
+## Getting Started
 
-## 🚀 Quick Start
+First, run the development server:
 
 ```bash
-# Install dependencies
-npm install
-
-# Start development server
 npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) met je browser.
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-## 📚 Documentatie
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-**Alle documentatie staat in [`DOCUMENTATIE.md`](./DOCUMENTATIE.md)**
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-Dit bestand bevat:
-- Complete Supabase setup instructies
-- Database structuur uitleg
-- Gebruik & implementatie
-- Testen & troubleshooting
-- Project structuur
+## Learn More
 
-## 🎯 Belangrijkste Features
+To learn more about Next.js, take a look at the following resources:
 
-- ✅ Tournament beheer (single/double elimination)
-- ✅ Team beheer met spelers
-- ✅ Match beheer met scores en winnaars
-- ✅ Real-time bracket visualisatie
-- ✅ Admin interface (`/admin`)
-- ✅ Supabase integratie voor cloud opslag
-- ✅ Automatische data syncing
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
-## 📖 Voor Nieuwe Gebruikers
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-1. Lees eerst [`DOCUMENTATIE.md`](./DOCUMENTATIE.md) voor complete setup
-2. Volg de Supabase setup stappen
-3. Test de integratie via `/test` pagina
+## Deploy on Vercel
 
-## 🛠️ Technologie Stack
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
-- **Framework**: Next.js 16.0.1
-- **UI**: React 19.2.0 met Tailwind CSS
-- **State Management**: Zustand
-- **Database**: Supabase (PostgreSQL)
-- **Animations**: Framer Motion
-- **Type Safety**: TypeScript
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.

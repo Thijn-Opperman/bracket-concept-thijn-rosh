@@ -1,10 +1,11 @@
 'use client';
 
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Match } from '@/app/types/bracket';
 import { useBracketStore } from '@/app/store/bracketStore';
-import type { MouseEvent } from 'react';
-import { useMemo, useState, useEffect } from 'react';
+import type { MouseEvent, KeyboardEvent } from 'react';
+import { useMemo, useState } from 'react';
 
 interface MatchCardProps {
   match: Match;
@@ -29,18 +30,16 @@ const hexToRgba = (hex: string, alpha = 1) => {
 export default function MatchCard({ match, roundIndex }: MatchCardProps) {
   const { settings, setSelectedMatch, getActiveBracket } = useBracketStore();
   const activeBracket = getActiveBracket();
-  const rounds = activeBracket?.rounds ?? [];
-  
-  // Automatisch uitklappen als wedstrijd een winnaar heeft (recent afgerond)
-  const shouldInitiallyExpand = match.winnerIndex !== undefined;
-  const [isExpanded, setIsExpanded] = useState(shouldInitiallyExpand);
-  
-  // Update expanded state when match becomes completed
-  useEffect(() => {
-    if (match.winnerIndex !== undefined) {
-      setIsExpanded(true);
-    }
-  }, [match.winnerIndex]);
+  const rounds = useMemo(
+    () => activeBracket?.rounds ?? [],
+    [activeBracket]
+  );
+
+  const [manualExpandOverride, setManualExpandOverride] = useState<boolean | null>(
+    null
+  );
+  const autoExpanded = match.winnerIndex !== undefined;
+  const isExpanded = manualExpandOverride ?? autoExpanded;
   
   // Find the next match for the winner (or for both teams if no winner yet)
   const nextMatch = useMemo(() => {
@@ -153,12 +152,14 @@ export default function MatchCard({ match, roundIndex }: MatchCardProps) {
     }
   };
 
-  const accentColor = match.details?.highlightColor ?? settings.secondaryColor;
-
-  const toggleExpand = (event?: React.MouseEvent | React.KeyboardEvent) => {
+  const toggleExpand = (
+    event?: MouseEvent<HTMLElement> | KeyboardEvent<HTMLElement>
+  ) => {
     event?.stopPropagation();
-    event?.preventDefault();
-    setIsExpanded(!isExpanded);
+    setManualExpandOverride((previous) => {
+      const currentState = previous ?? autoExpanded;
+      return !currentState;
+    });
   };
 
   const visuals = getCardVisuals();
@@ -218,11 +219,12 @@ export default function MatchCard({ match, roundIndex }: MatchCardProps) {
       {/* Collapsed/Summary View */}
       <div 
         className="p-3 cursor-pointer hover:opacity-90 transition-opacity"
-        onClick={toggleExpand}
+        onClick={(event) => toggleExpand(event)}
         role="button"
         tabIndex={0}
         onKeyDown={(event) => {
           if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
             toggleExpand(event);
           }
         }}
@@ -304,7 +306,7 @@ export default function MatchCard({ match, roundIndex }: MatchCardProps) {
               </button>
               <motion.button
                 type="button"
-                onClick={toggleExpand}
+                onClick={(event) => toggleExpand(event)}
                 className="flex items-center justify-center rounded-full border p-1.5 transition"
                 style={{
                   borderColor: '#2D3E5A',
@@ -344,9 +346,12 @@ export default function MatchCard({ match, roundIndex }: MatchCardProps) {
             {/* Team 1 */}
             <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
               {match.teams[0]?.logo && (
-                <img
+                <Image
                   src={match.teams[0].logo}
                   alt={match.teams[0]?.name ?? 'Team logo'}
+                  width={32}
+                  height={32}
+                  unoptimized
                   className="h-8 w-8 rounded-full object-cover flex-shrink-0"
                 />
               )}
@@ -412,9 +417,12 @@ export default function MatchCard({ match, roundIndex }: MatchCardProps) {
             {/* Team 2 */}
             <div className="flex-1 min-w-0 flex items-center gap-2 justify-end flex-wrap">
               {match.teams[1]?.logo && (
-                <img
+                <Image
                   src={match.teams[1].logo}
                   alt={match.teams[1]?.name ?? 'Team logo'}
+                  width={32}
+                  height={32}
+                  unoptimized
                   className="h-8 w-8 rounded-full object-cover flex-shrink-0"
                 />
               )}

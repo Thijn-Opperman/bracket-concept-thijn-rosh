@@ -1,8 +1,9 @@
 'use client';
 
+import Image from 'next/image';
 import { useBracketStore } from '@/app/store/bracketStore';
 import { motion } from 'framer-motion';
-import type { Round } from '@/app/types/bracket';
+import type { BracketSettings, Round } from '@/app/types/bracket';
 
 export default function BracketOverview() {
   const { getActiveBracket, settings, setSelectedMatch } = useBracketStore();
@@ -31,8 +32,6 @@ export default function BracketOverview() {
             <RoundColumn
               key={round.name}
               round={round}
-              roundIndex={roundIndex}
-              displayIndex={roundIndex}
               isLastRound={roundIndex === rounds.length - 1}
               settings={settings}
               setSelectedMatch={setSelectedMatch}
@@ -46,22 +45,18 @@ export default function BracketOverview() {
 
 function RoundColumn({
   round,
-  roundIndex,
-  displayIndex,
   isLastRound,
   settings,
   setSelectedMatch,
 }: {
   round: Round;
-  roundIndex: number;
-  displayIndex: number;
   isLastRound: boolean;
-  settings: import('@/app/types/bracket').BracketSettings;
+  settings: BracketSettings;
   setSelectedMatch: (id: string | null) => void;
 }) {
   
   return (
-    <div className="flex flex-col justify-center min-w-[240px] overflow-visible">
+    <div className="flex flex-col justify-center min-w-[240px]">
       <div className="mb-4 text-center">
         <p className="text-xs uppercase tracking-widest text-white/50 mb-1">
           {round.name}
@@ -69,7 +64,7 @@ function RoundColumn({
         <div className="h-px w-full bg-white/10 mt-2" />
       </div>
       
-      <div className="flex flex-col gap-4 overflow-visible">
+      <div className="flex flex-col gap-4">
         {round.matches.map((match, matchIndex) => {
           const teamA = match.teams[0];
           const teamB = match.teams[1];
@@ -84,7 +79,7 @@ function RoundColumn({
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: matchIndex * 0.1 }}
-              className="relative px-1 overflow-visible"
+              className="relative"
             >
               <div
                 className="group rounded-xl border-2 p-3 cursor-pointer transition-all hover:scale-[1.02] hover:shadow-lg relative"
@@ -150,9 +145,12 @@ function RoundColumn({
                 >
                   <div className="flex items-center gap-2">
                     {teamA?.logo && (
-                      <img
+                      <Image
                         src={teamA.logo}
                         alt={teamA.name}
+                        width={24}
+                        height={24}
+                        unoptimized
                         className="h-6 w-6 rounded object-contain"
                       />
                     )}
@@ -192,9 +190,12 @@ function RoundColumn({
                 >
                   <div className="flex items-center gap-2">
                     {teamB?.logo && (
-                      <img
+                      <Image
                         src={teamB.logo}
                         alt={teamB.name}
+                        width={24}
+                        height={24}
+                        unoptimized
                         className="h-6 w-6 rounded object-contain"
                       />
                     )}

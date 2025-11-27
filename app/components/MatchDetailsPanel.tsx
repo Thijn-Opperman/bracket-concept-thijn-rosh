@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useMemo } from 'react';
 import { useBracketStore } from '@/app/store/bracketStore';
@@ -110,7 +111,7 @@ export default function MatchDetailsPanel() {
 
             {/* Team Information */}
             <div className="grid gap-4 sm:grid-cols-2 mb-6">
-              {match.teams.map((team, index) => {
+              {match.teams.map((team) => {
                 if (!team) return null;
                 return (
                   <div
@@ -118,9 +119,12 @@ export default function MatchDetailsPanel() {
                     className="rounded-2xl border border-white/10 bg-[#1A2335] p-4"
                   >
                     {team.logo && (
-                      <img
+                      <Image
                         src={team.logo}
                         alt={team.name}
+                        width={64}
+                        height={64}
+                        unoptimized
                         className="h-16 w-16 rounded-lg object-contain mb-3"
                       />
                     )}
@@ -134,7 +138,9 @@ export default function MatchDetailsPanel() {
                       </p>
                     )}
                     {team.motto && (
-                      <p className="text-xs text-white/70 italic mt-2">&ldquo;{team.motto}&rdquo;</p>
+                      <p className="text-xs text-white/70 italic mt-2">
+                        &ldquo;{team.motto}&rdquo;
+                      </p>
                     )}
                     {team.twitchLink && (
                       <a

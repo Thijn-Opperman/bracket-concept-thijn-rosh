@@ -56,3 +56,4 @@ export function getReadableTextColor(backgroundHex: string): string {
   return brightness > 128 ? '#111111' : '#ffffff';
 }
 
+

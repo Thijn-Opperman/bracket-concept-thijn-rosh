@@ -1,15 +1,10 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { useBracketStore } from '@/app/store/bracketStore';
 import type { Team, BracketType, Match } from '@/app/types/bracket';
-import { useEffect, useMemo, useState } from 'react';
-import {
-  getContrastRatio,
-  getReadableTextColor,
-  isValidHexColor,
-  normalizeHex,
-} from '@/app/utils/colorUtils';
+import { useMemo, useState } from 'react';
 
 export default function AdminPage() {
   const {
@@ -36,135 +31,93 @@ export default function AdminPage() {
   const [editingTeamDraft, setEditingTeamDraft] = useState<Team | null>(null);
   const [teamSearchTerm, setTeamSearchTerm] = useState('');
   const [teamSelectionError, setTeamSelectionError] = useState<string | null>(null);
-  const [matchOverviewSearch, setMatchOverviewSearch] = useState('');
-  const [matchOverviewRoundFilter, setMatchOverviewRoundFilter] = useState<string>('all');
-  const colorDiagnostics = useMemo(() => {
-    type ColorKey = 'primaryColor' | 'secondaryColor' | 'backgroundColor';
-    const MIN_TEXT_CONTRAST = 4.5;
-    const normalized: Record<ColorKey, string> = {
-      primaryColor: normalizeHex(settings.primaryColor ?? '#482cff', '#482cff'),
-      secondaryColor: normalizeHex(settings.secondaryColor ?? '#420ab2', '#420ab2'),
-      backgroundColor: normalizeHex(settings.backgroundColor ?? '#111827', '#111827'),
-    };
-
-    const diagnostics: Record<
-      ColorKey,
-      {
-        normalizedValue: string;
-        warnings: string[];
-        contrastLabel?: string;
-        recommendedTextColor: string;
-        isValid: boolean;
-      }
-    > = {
-      primaryColor: {
-        normalizedValue: normalized.primaryColor,
-        warnings: [],
-        recommendedTextColor: getReadableTextColor(normalized.primaryColor),
-        isValid: isValidHexColor(settings.primaryColor),
-      },
-      secondaryColor: {
-        normalizedValue: normalized.secondaryColor,
-        warnings: [],
-        recommendedTextColor: getReadableTextColor(normalized.secondaryColor),
-        isValid: isValidHexColor(settings.secondaryColor),
-      },
-      backgroundColor: {
-        normalizedValue: normalized.backgroundColor,
-        warnings: [],
-        recommendedTextColor: getReadableTextColor(normalized.backgroundColor),
-        isValid: isValidHexColor(settings.backgroundColor),
-      },
-    };
-
-    const addWarning = (key: ColorKey, warning: string) => {
-      diagnostics[key].warnings.push(warning);
-    };
-
-    const registerContrast = (foreground: ColorKey, background: ColorKey, label: string) => {
-      const ratio = getContrastRatio(
-        diagnostics[foreground].normalizedValue,
-        diagnostics[background].normalizedValue
-      );
-      diagnostics[foreground].contrastLabel = `${label}: ${ratio}:1`;
-      if (ratio < MIN_TEXT_CONTRAST) {
-        addWarning(
-          foreground,
-          `Contrast met ${label.toLowerCase()} is te laag (${ratio}:1). Kies een donkerder of lichtere kleur voor betere leesbaarheid.`
-        );
-      }
-    };
-
-    registerContrast('primaryColor', 'backgroundColor', 'Contrast met achtergrond');
-    registerContrast('secondaryColor', 'backgroundColor', 'Contrast met achtergrond');
-
-    const backgroundVsWhite = getContrastRatio(
-      diagnostics.backgroundColor.normalizedValue,
-      '#ffffff'
-    );
-    diagnostics.backgroundColor.contrastLabel = `Contrast met #FFFFFF: ${backgroundVsWhite}:1`;
-    if (backgroundVsWhite < MIN_TEXT_CONTRAST) {
-      addWarning(
-        'backgroundColor',
-        `De achtergrondkleur heeft onvoldoende contrast met witte tekst (${backgroundVsWhite}:1). Kies een donkerdere tint voor betere leesbaarheid.`
+  const selectedBracket = useMemo(() => {
+    if (brackets.length === 0) return undefined;
+    if (selectedBracketId) {
+      return (
+        brackets.find((bracket) => bracket.id === selectedBracketId) ?? brackets[0]
       );
     }
-
-    return diagnostics;
-  }, [settings.primaryColor, settings.secondaryColor, settings.backgroundColor]);
-
-  useEffect(() => {
-    if (!selectedTeamId && teams.length > 0) {
-      setSelectedTeamId(teams[0].id);
-    } else if (selectedTeamId && !teams.find((team) => team.id === selectedTeamId)) {
-      setSelectedTeamId(teams[0]?.id ?? null);
-    }
-  }, [teams, selectedTeamId]);
-
-  useEffect(() => {
-    if (!selectedBracketId && brackets.length > 0) {
-      setSelectedBracketId(brackets[0].id);
-    } else if (
-      selectedBracketId &&
-      !brackets.find((bracket) => bracket.id === selectedBracketId)
-    ) {
-      setSelectedBracketId(brackets[0]?.id ?? null);
-    }
+    return brackets[0];
   }, [brackets, selectedBracketId]);
 
-  const selectedTeam = teams.find((team) => team.id === selectedTeamId);
-  const selectedBracket =
-    brackets.find((bracket) => bracket.id === selectedBracketId) ?? brackets[0];
-
-  useEffect(() => {
-    if (!selectedBracket) return;
-    if (selectedRoundIndex >= selectedBracket.rounds.length) {
-      setSelectedRoundIndex(0);
-    }
+  const resolvedRoundIndex = useMemo(() => {
+    if (!selectedBracket || selectedBracket.rounds.length === 0) return 0;
+    if (selectedRoundIndex >= selectedBracket.rounds.length) return 0;
+    if (selectedRoundIndex < 0) return 0;
+    return selectedRoundIndex;
   }, [selectedBracket, selectedRoundIndex]);
 
-  const selectedRound = selectedBracket?.rounds[selectedRoundIndex];
+  const selectedRound = selectedBracket?.rounds[resolvedRoundIndex];
 
-  useEffect(() => {
-    if (!selectedRound) {
-      setSelectedMatchId(null);
-      return;
+  const resolvedMatchId = useMemo(() => {
+    if (!selectedRound || selectedRound.matches.length === 0) return null;
+    if (selectedMatchId) {
+      const exists = selectedRound.matches.some(
+        (match) => match.id === selectedMatchId
+      );
+      if (exists) {
+        return selectedMatchId;
+      }
     }
-    if (
-      selectedMatchId &&
-      !selectedRound.matches.find((match) => match.id === selectedMatchId)
-    ) {
-      setSelectedMatchId(selectedRound.matches[0]?.id ?? null);
-    } else if (!selectedMatchId && selectedRound.matches.length > 0) {
-      setSelectedMatchId(selectedRound.matches[0].id);
-    }
-  }, [selectedRound, selectedMatchId]);
+    return selectedRound.matches[0]?.id ?? null;
+  }, [selectedMatchId, selectedRound]);
 
-  const selectedMatch = selectedMatchId
-    ? getMatchById(selectedMatchId)
-    : undefined;
+  const currentMatchId = resolvedMatchId;
+
+  const selectedMatch = currentMatchId ? getMatchById(currentMatchId) : undefined;
+
+  const autoTeamSelectionError = useMemo(() => {
+    if (!selectedMatch) return null;
+    const [teamA, teamB] = selectedMatch.teams;
+    if (teamA?.id && teamB?.id && teamA.id === teamB.id) {
+      return 'Deze match bevat twee keer hetzelfde team. Kies een ander team voor een van de slots.';
+    }
+    return null;
+  }, [selectedMatch]);
 
   const editingTeam = teams.find((team) => team.id === editingTeamId);
+  const displayedTeamSelectionError =
+    selectedMatch ? teamSelectionError ?? autoTeamSelectionError : null;
+
+  const setBracketSelection = (value: string) => {
+    setTeamSelectionError(null);
+    setSelectedBracketId(value || null);
+    setSelectedRoundIndex(0);
+    setSelectedMatchId(null);
+  };
+
+  const setRoundSelection = (value: string) => {
+    setTeamSelectionError(null);
+    setSelectedRoundIndex(Number(value));
+    setSelectedMatchId(null);
+  };
+
+  const setMatchSelection = (value: string) => {
+    setTeamSelectionError(null);
+    setSelectedMatchId(value || null);
+  };
+
+  const cloneTeamForEditing = (team: Team | null | undefined): Team | null => {
+    if (!team) return null;
+    return {
+      ...team,
+      players: team.players ? team.players.map((player) => ({ ...player })) : [],
+    };
+  };
+
+  const openTeamModal = (teamId: string) => {
+    const team = teams.find((t) => t.id === teamId) ?? null;
+    setEditingTeamId(teamId);
+    setEditingTeamDraft(cloneTeamForEditing(team));
+    setIsTeamModalOpen(true);
+  };
+
+  const closeTeamModal = () => {
+    setIsTeamModalOpen(false);
+    setEditingTeamId(null);
+    setEditingTeamDraft(null);
+  };
 
   const handleTeamFieldChange = (field: keyof Team, value: string) => {
     setEditingTeamDraft((prev) => {
@@ -283,30 +236,41 @@ export default function AdminPage() {
         setSelectedTeamId(null);
       }
       if (editingTeamId === teamId) {
-        setIsTeamModalOpen(false);
-        setEditingTeamId(null);
+        closeTeamModal();
       }
     }
   };
 
   const handleMatchFieldChange = (field: 'startTime' | 'court', value: string) => {
-    if (!selectedMatchId) return;
-    updateMatchDetails(selectedMatchId, { [field]: value });
+    if (!currentMatchId) return;
+    updateMatchDetails(currentMatchId, { [field]: value });
+  };
+
+  const handleMatchDetailChange = (
+    field: 'title' | 'subtitle' | 'description' | 'scheduleNote' | 'prizeInfo',
+    value: string
+  ) => {
+    if (!currentMatchId) return;
+    updateMatchDetails(currentMatchId, {
+      details: {
+        [field]: value,
+      },
+    });
   };
 
   const handleScoreInputChange = (teamIndex: number) => (value: string) => {
-    if (!selectedMatchId) return;
+    if (!currentMatchId) return;
     const parsed = value === '' ? 0 : Math.max(0, parseInt(value, 10) || 0);
-    setTeamScore(selectedMatchId, teamIndex, parsed);
+    setTeamScore(currentMatchId, teamIndex, parsed);
   };
 
   const handleWinnerSelect = (teamIndex: number) => () => {
-    if (!selectedMatchId || !selectedMatch?.teams[teamIndex]) return;
-    setWinner(selectedMatchId, teamIndex);
+    if (!currentMatchId || !selectedMatch?.teams[teamIndex]) return;
+    setWinner(currentMatchId, teamIndex);
   };
 
   const handleTeamAssignment = (teamIndex: number) => (value: string) => {
-    if (!selectedMatchId) return;
+    if (!currentMatchId) return;
     const normalized = value === '' ? null : value;
     const otherIndex = teamIndex === 0 ? 1 : 0;
     const otherTeamId = selectedMatch?.teams[otherIndex]?.id ?? null;
@@ -317,34 +281,8 @@ export default function AdminPage() {
     }
 
     setTeamSelectionError(null);
-    setMatchTeam(selectedMatchId, teamIndex, normalized);
+    setMatchTeam(currentMatchId, teamIndex, normalized);
   };
-
-  useEffect(() => {
-    if (!selectedMatch) {
-      setTeamSelectionError(null);
-      return;
-    }
-    const [teamA, teamB] = selectedMatch.teams;
-    if (teamA?.id && teamB?.id && teamA.id === teamB.id) {
-      setTeamSelectionError('Deze match bevat twee keer hetzelfde team. Kies een ander team voor een van de slots.');
-    } else {
-      setTeamSelectionError(null);
-    }
-  }, [selectedMatch]);
-
-  useEffect(() => {
-    if (editingTeam) {
-      setEditingTeamDraft({
-        ...editingTeam,
-        players: editingTeam.players
-          ? editingTeam.players.map((player) => ({ ...player }))
-          : [],
-      });
-    } else {
-      setEditingTeamDraft(null);
-    }
-  }, [editingTeam]);
 
   const teamMatchesForEditingTeam = useMemo(() => {
     if (!editingTeamId) return [];
@@ -378,125 +316,6 @@ export default function AdminPage() {
         [field]: value === '' ? undefined : value,
       });
     };
-  const handleTeamMatchDetailChange =
-    (
-      matchId: string,
-      field: 'title' | 'subtitle' | 'description' | 'scheduleNote' | 'prizeInfo'
-    ) =>
-    (value: string) => {
-      updateMatchDetails(matchId, {
-        details: {
-          [field]: value === '' ? undefined : value,
-        },
-      });
-    };
-  const handleLogoFileUpload = (file: File, onSuccess: (value: string) => void, onError?: (error: string) => void) => {
-    // Check file type
-    if (!file.type.startsWith('image/')) {
-      const errorMsg = 'Upload een geldig afbeeldingstype (PNG, JPG, SVG, ...).';
-      alert(errorMsg);
-      onError?.(errorMsg);
-      return;
-    }
-
-    // Check file size (max 5MB voor data URL)
-    const maxSize = 5 * 1024 * 1024; // 5MB
-    if (file.size > maxSize) {
-      const errorMsg = `Bestand is te groot (${(file.size / 1024 / 1024).toFixed(2)}MB). Maximum is 5MB. Comprimeer de afbeelding of gebruik een kleinere versie.`;
-      alert(errorMsg);
-      onError?.(errorMsg);
-      return;
-    }
-
-    const reader = new FileReader();
-    
-    // Error handler
-    reader.onerror = () => {
-      const errorMsg = 'Fout bij het lezen van het bestand. Probeer een ander bestand.';
-      console.error('FileReader error:', reader.error);
-      alert(errorMsg);
-      onError?.(errorMsg);
-    };
-
-    // Success handler
-    reader.onloadend = () => {
-      try {
-        const result = typeof reader.result === 'string' ? reader.result : null;
-        if (result) {
-          // Check if result is not too large (PostgreSQL TEXT can handle large strings, but let's be safe)
-          if (result.length > 10 * 1024 * 1024) { // 10MB string limit
-            const errorMsg = 'Afbeelding is te groot na conversie. Gebruik een kleinere afbeelding.';
-            alert(errorMsg);
-            onError?.(errorMsg);
-            return;
-          }
-          onSuccess(result);
-        } else {
-          const errorMsg = 'Kon bestand niet lezen. Probeer opnieuw.';
-          alert(errorMsg);
-          onError?.(errorMsg);
-        }
-      } catch (error: unknown) {
-        const errorMsg = `Fout bij verwerken van afbeelding: ${error instanceof Error ? error.message : 'Onbekende fout'}`;
-        console.error('Error processing file:', error);
-        alert(errorMsg);
-        onError?.(errorMsg);
-      }
-    };
-
-    // Start reading
-    try {
-      reader.readAsDataURL(file);
-    } catch (error: unknown) {
-      const errorMsg = `Fout bij starten van bestand lezen: ${error instanceof Error ? error.message : 'Onbekende fout'}`;
-      console.error('Error starting file read:', error);
-      alert(errorMsg);
-      onError?.(errorMsg);
-    }
-  };
-
-  const matchOverviewEntries = useMemo(() => {
-    return brackets.flatMap((bracket) =>
-      bracket.rounds.flatMap((round, roundIndex) =>
-        round.matches.map((match, matchIndex) => ({
-          bracketId: bracket.id,
-          bracketName: bracket.name,
-          roundIndex,
-          roundName: round.name,
-          matchIndex,
-          match,
-        }))
-      )
-    );
-  }, [brackets]);
-
-  const filteredMatchOverview = useMemo(() => {
-    const trimmedSearch = matchOverviewSearch.trim().toLowerCase();
-    return matchOverviewEntries.filter(({ roundName, roundIndex, bracketId, match, bracketName }) => {
-      if (matchOverviewRoundFilter !== 'all') {
-        const { bracketId: filterBracketId, roundIndex: filterRoundIndex } = JSON.parse(
-          matchOverviewRoundFilter
-        ) as { bracketId: string; roundIndex: number };
-        if (bracketId !== filterBracketId || roundIndex !== filterRoundIndex) {
-          return false;
-        }
-      }
-
-      if (!trimmedSearch) return true;
-
-      const teamNames = match.teams
-        .map((team) => team?.name ?? 'TBD')
-        .join(' ')
-        .toLowerCase();
-
-      return (
-        bracketName.toLowerCase().includes(trimmedSearch) ||
-        roundName.toLowerCase().includes(trimmedSearch) ||
-        teamNames.includes(trimmedSearch) ||
-        match.id.toLowerCase().includes(trimmedSearch)
-      );
-    });
-  }, [matchOverviewEntries, matchOverviewRoundFilter, matchOverviewSearch]);
 
   const handleSaveEditedTeam = () => {
     if (!editingTeam || !editingTeamDraft) return;
@@ -511,14 +330,20 @@ export default function AdminPage() {
         name: player.name?.trim() || 'Naamloos',
       })) ?? [];
 
-    const { id: _ignoredId, players: _ignoredPlayers, ...rest } = editingTeamDraft;
+    const {
+      id: draftIdToIgnore,
+      players: draftPlayersToIgnore,
+      ...teamPayload
+    } = editingTeamDraft;
+    void draftIdToIgnore;
+    void draftPlayersToIgnore;
+
     updateTeam(editingTeam.id, {
-      ...rest,
+      ...teamPayload,
       name,
       players: sanitizedPlayers,
     });
-    setIsTeamModalOpen(false);
-    setEditingTeamId(null);
+    closeTeamModal();
   };
 
   return (
@@ -680,10 +505,6 @@ export default function AdminPage() {
                   description={colorSetting.description}
                   value={settings[colorSetting.key]}
                   onChange={(value) => setSettings({ [colorSetting.key]: value })}
-                  warnings={colorDiagnostics[colorSetting.key].warnings}
-                  contrastLabel={colorDiagnostics[colorSetting.key].contrastLabel}
-                  recommendedTextColor={colorDiagnostics[colorSetting.key].recommendedTextColor}
-                  isValid={colorDiagnostics[colorSetting.key].isValid}
                 />
               ))}
             </div>
@@ -748,8 +569,7 @@ export default function AdminPage() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      setEditingTeamId(team.id);
-                      setIsTeamModalOpen(true);
+                      openTeamModal(team.id);
                     }}
                     className="rounded-lg border border-white/20 p-2 text-white/70 transition hover:border-white/40 hover:bg-white/10 hover:text-white"
                     title="Team instellingen"
@@ -790,7 +610,7 @@ export default function AdminPage() {
         <section className="w-full rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl shadow-black/30 backdrop-blur">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-                <p className="text-xs uppercase tracking-[0.35em] text-white/60">
+              <p className="text-xs uppercase tracking-[0.35em] text-white/60">
                 Wedstrijden
               </p>
               <h2 className="text-2xl font-semibold text-white">Matchbeheer</h2>
@@ -802,15 +622,13 @@ export default function AdminPage() {
 
           <div className="mt-4 rounded-2xl border border-white/10 bg-black/30 p-4 text-xs text-white/70">
             Zorg dat beide teams zijn ingevuld voordat je een winnaar kiest. De live bracket wordt direct bijgewerkt na elke wijziging.
-            <br />
-            Gedetailleerde wedstrijdteksten beheer je nu via het teambeheer (open een team en scroll naar “Wedstrijden van dit team”).
           </div>
 
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
             <SelectField
               label="Bracket"
               value={selectedBracket?.id ?? ''}
-              onChange={(value) => setSelectedBracketId(value)}
+              onChange={setBracketSelection}
               options={brackets.map((bracket) => ({
                 label: bracket.name,
                 value: bracket.id,
@@ -818,8 +636,12 @@ export default function AdminPage() {
             />
             <SelectField
               label="Ronde"
-              value={selectedRoundIndex.toString()}
-              onChange={(value) => setSelectedRoundIndex(Number(value))}
+              value={
+                selectedBracket && selectedBracket.rounds.length > 0
+                  ? resolvedRoundIndex.toString()
+                  : ''
+              }
+              onChange={setRoundSelection}
               options={(selectedBracket?.rounds ?? []).map((round, index) => ({
                 label: round.name,
                 value: index.toString(),
@@ -827,8 +649,8 @@ export default function AdminPage() {
             />
             <SelectField
               label="Match"
-              value={selectedMatchId ?? ''}
-              onChange={(value) => setSelectedMatchId(value)}
+              value={currentMatchId ?? ''}
+              onChange={setMatchSelection}
               options={(selectedRound?.matches ?? []).map((match) => ({
                 label: `${match.id.toUpperCase()}`,
                 value: match.id,
@@ -836,9 +658,9 @@ export default function AdminPage() {
             />
           </div>
 
-          {teamSelectionError && (
+          {displayedTeamSelectionError && (
             <div className="mt-4 rounded-2xl border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-              {teamSelectionError}
+              {displayedTeamSelectionError}
             </div>
           )}
 
@@ -880,9 +702,12 @@ export default function AdminPage() {
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-center gap-3">
                             {team.logo && (
-                              <img
+                              <Image
                                 src={team.logo}
                                 alt={team.name}
+                                width={48}
+                                height={48}
+                                unoptimized
                                 className="h-12 w-12 rounded-xl object-cover"
                               />
                             )}
@@ -942,6 +767,46 @@ export default function AdminPage() {
                 ))}
               </div>
 
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field
+                  label="Starttijd"
+                  value={selectedMatch.startTime ?? ''}
+                  placeholder="14:30"
+                  onChange={(value) => handleMatchFieldChange('startTime', value)}
+                />
+                <Field
+                  label="Locatie"
+                  value={selectedMatch.court ?? ''}
+                  placeholder="Main Arena"
+                  onChange={(value) => handleMatchFieldChange('court', value)}
+                />
+              </div>
+
+              <Field
+                label="Titel"
+                value={selectedMatch.details?.title ?? ''}
+                onChange={(value) => handleMatchDetailChange('title', value)}
+              />
+              <Field
+                label="Subtitel"
+                value={selectedMatch.details?.subtitle ?? ''}
+                onChange={(value) => handleMatchDetailChange('subtitle', value)}
+              />
+              <TextAreaField
+                label="Beschrijving"
+                value={selectedMatch.details?.description ?? ''}
+                onChange={(value) => handleMatchDetailChange('description', value)}
+              />
+              <Field
+                label="Schema notitie"
+                value={selectedMatch.details?.scheduleNote ?? ''}
+                onChange={(value) => handleMatchDetailChange('scheduleNote', value)}
+              />
+              <Field
+                label="Prijzengeld"
+                value={selectedMatch.details?.prizeInfo ?? ''}
+                onChange={(value) => handleMatchDetailChange('prizeInfo', value)}
+              />
             </div>
           ) : (
             <p className="mt-6 text-sm text-white/60">
@@ -949,122 +814,6 @@ export default function AdminPage() {
             </p>
           )}
         </section>
-
-        <section className="w-full rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl shadow-black/30 backdrop-blur">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-xs uppercase tracking-[0.35em] text-white/60">
-                Overzicht
-              </p>
-              <h2 className="text-2xl font-semibold text-white">Match overzicht</h2>
-              <p className="text-xs text-white/60 mt-1">
-                Bekijk alle wedstrijden in één oogopslag en pas starttijd of locatie direct aan.
-              </p>
-            </div>
-            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-              <select
-                value={matchOverviewRoundFilter}
-                onChange={(event) => setMatchOverviewRoundFilter(event.target.value)}
-                className="rounded-xl border border-white/10 bg-black/40 px-4 py-2 text-sm text-white outline-none transition focus:border-white/40"
-              >
-                <option value="all">Alle rondes</option>
-                {brackets.flatMap((bracket) =>
-                  bracket.rounds.map((round, roundIndex) => {
-                    const key = JSON.stringify({
-                      bracketId: bracket.id,
-                      roundIndex,
-                    });
-                    return (
-                      <option key={`${bracket.id}-${roundIndex}`} value={key}>
-                        {bracket.name} · {round.name}
-                      </option>
-                    );
-                  })
-                )}
-              </select>
-              <input
-                type="text"
-                value={matchOverviewSearch}
-                onChange={(event) => setMatchOverviewSearch(event.target.value)}
-                placeholder="Zoek op teams, ronde of match ID..."
-                className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-2 text-sm text-white outline-none transition focus:border-white/40 sm:w-64"
-              />
-            </div>
-          </div>
-
-          <div className="mt-4 max-h-[420px] overflow-hidden rounded-2xl border border-white/10">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-white/10 text-sm text-white/80">
-                <thead className="bg-white/5 text-xs uppercase tracking-widest text-white/60">
-                  <tr>
-                    <th className="px-4 py-3 text-left">Bracket / Ronde</th>
-                    <th className="px-4 py-3 text-left">Match</th>
-                    <th className="px-4 py-3 text-left">Teams</th>
-                    <th className="px-4 py-3 text-left">Starttijd</th>
-                    <th className="px-4 py-3 text-left">Locatie</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/10">
-                  {filteredMatchOverview.length === 0 && (
-                    <tr>
-                      <td colSpan={6} className="px-4 py-6 text-center text-white/50">
-                        Geen wedstrijden gevonden voor deze zoekopdracht.
-                      </td>
-                    </tr>
-                  )}
-                  {filteredMatchOverview.map(({ bracketId, bracketName, roundName, roundIndex, match }) => {
-                    const teamsLabel = `${match.teams[0]?.name ?? 'TBD'} vs ${
-                      match.teams[1]?.name ?? 'TBD'
-                    }`;
-                    return (
-                      <tr key={`overview-${match.id}`}>
-                        <td className="px-4 py-3 align-top">
-                          <p className="font-semibold text-white">{bracketName}</p>
-                          <p className="text-xs text-white/50">{roundName}</p>
-                        </td>
-                        <td className="px-4 py-3 align-top">
-                          <p className="font-mono text-xs text-white/60">{match.id.toUpperCase()}</p>
-                          {match.details?.title && (
-                            <p className="text-xs text-white/50 mt-1">{match.details.title}</p>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 align-top">
-                          <p className="text-white">{teamsLabel}</p>
-                          {match.details?.subtitle && (
-                            <p className="text-xs text-white/50 mt-1">{match.details.subtitle}</p>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 align-top">
-                          <input
-                            type="text"
-                            value={match.startTime ?? ''}
-                            onChange={(event) =>
-                              handleTeamMatchMetaChange(match.id, 'startTime')(event.target.value)
-                            }
-                            placeholder="14:30"
-                            className="w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-white outline-none transition focus:border-white/40"
-                          />
-                        </td>
-                        <td className="px-4 py-3 align-top">
-                          <input
-                            type="text"
-                            value={match.court ?? ''}
-                            onChange={(event) =>
-                              handleTeamMatchMetaChange(match.id, 'court')(event.target.value)
-                            }
-                            placeholder="Main Arena"
-                            className="w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-white outline-none transition focus:border-white/40"
-                          />
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-
         </div>
       </main>
 
@@ -1159,49 +908,20 @@ export default function AdminPage() {
                   placeholder="https://..."
                   onChange={(value) => setNewTeamForm({ ...newTeamForm, logo: value })}
                 />
-                <div className="mt-2 flex flex-wrap items-center gap-3">
-                  <label className="relative cursor-pointer rounded-full border border-white/20 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white/80 transition hover:border-white/40 hover:text-white">
-                    Upload bestand
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                      onChange={(event) => {
-                        const file = event.target.files?.[0];
-                        if (!file) return;
-                        handleLogoFileUpload(
-                          file,
-                          (value) => setNewTeamForm((prev) => ({ ...prev, logo: value })),
-                          (error) => console.error('Logo upload error:', error)
-                        );
-                        event.target.value = '';
+                {newTeamForm.logo && (
+                  <div className="mt-2 flex items-center gap-3 rounded-xl border border-white/10 bg-black/30 p-3">
+                    <Image
+                      src={newTeamForm.logo}
+                      alt="Logo preview"
+                      width={48}
+                      height={48}
+                      unoptimized
+                      className="h-12 w-12 rounded-lg object-contain"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
                       }}
                     />
-                  </label>
-                  <span className="text-[11px] text-white/50">
-                    Ondersteunt PNG, JPG, SVG; wordt lokaal als data-URL opgeslagen.
-                  </span>
-                </div>
-                {newTeamForm.logo && (
-                  <div className="mt-2 flex flex-wrap items-center gap-3 rounded-xl border border-white/10 bg-black/30 p-3">
-                    <div className="flex items-center gap-3">
-                      <img
-                        src={newTeamForm.logo}
-                        alt="Logo preview"
-                        className="h-12 w-12 rounded-lg object-contain"
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none';
-                        }}
-                      />
-                      <span className="text-xs text-white/60">Logo preview</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setNewTeamForm((prev) => ({ ...prev, logo: '' }))}
-                      className="rounded-full border border-red-400/40 px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-red-200 transition hover:border-red-200 hover:bg-red-500/10"
-                    >
-                      Verwijder
-                    </button>
+                    <span className="text-xs text-white/60">Logo preview</span>
                   </div>
                 )}
               </div>
@@ -1258,10 +978,7 @@ export default function AdminPage() {
       {isTeamModalOpen && editingTeam && editingTeamDraft && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
-          onClick={() => {
-            setIsTeamModalOpen(false);
-            setEditingTeamId(null);
-          }}
+          onClick={closeTeamModal}
         >
           <div
             className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-3xl border border-white/10 bg-gradient-to-br from-[#030712] via-[#0f172a] to-[#020617] p-6 shadow-2xl shadow-black/40"
@@ -1269,10 +986,7 @@ export default function AdminPage() {
           >
             {/* Close button */}
             <button
-              onClick={() => {
-                setIsTeamModalOpen(false);
-                setEditingTeamId(null);
-              }}
+              onClick={closeTeamModal}
               className="absolute right-4 top-4 rounded-full border border-white/20 p-2 text-white/70 transition hover:border-white/40 hover:bg-white/10 hover:text-white"
             >
               <svg
@@ -1304,8 +1018,6 @@ export default function AdminPage() {
                 onClick={() => {
                   if (editingTeam) {
                     handleDeleteTeam(editingTeam.id);
-                    setIsTeamModalOpen(false);
-                    setEditingTeamId(null);
                   }
                 }}
                 className="rounded-full border border-red-400/40 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-red-300 transition hover:border-red-300 hover:bg-red-400/10"
@@ -1335,49 +1047,20 @@ export default function AdminPage() {
                     placeholder="https://..."
                     onChange={(value) => handleTeamFieldChange('logo', value)}
                   />
-                  <div className="mt-2 flex flex-wrap items-center gap-3">
-                    <label className="relative cursor-pointer rounded-full border border-white/20 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white/80 transition hover:border-white/40 hover:text-white">
-                      Upload bestand
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                        onChange={(event) => {
-                          const file = event.target.files?.[0];
-                          if (!file) return;
-                          handleLogoFileUpload(
-                            file,
-                            (value) => handleTeamFieldChange('logo', value),
-                            (error) => console.error('Logo upload error:', error)
-                          );
-                          event.target.value = '';
+                  {editingTeamDraft.logo && (
+                    <div className="mt-2 flex items-center gap-3 rounded-xl border border-white/10 bg-black/30 p-3">
+                      <Image
+                        src={editingTeamDraft.logo}
+                        alt="Logo preview"
+                        width={48}
+                        height={48}
+                        unoptimized
+                        className="h-12 w-12 rounded-lg object-contain"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
                         }}
                       />
-                    </label>
-                    <span className="text-[11px] text-white/50">
-                      Ondersteunt PNG, JPG, SVG; wordt lokaal als data-URL opgeslagen.
-                    </span>
-                  </div>
-                  {editingTeamDraft.logo && (
-                    <div className="mt-2 flex flex-wrap items-center gap-3 rounded-xl border border-white/10 bg-black/30 p-3">
-                      <div className="flex items-center gap-3">
-                        <img
-                          src={editingTeamDraft.logo}
-                          alt="Logo preview"
-                          className="h-12 w-12 rounded-lg object-contain"
-                          onError={(e) => {
-                            e.currentTarget.style.display = 'none';
-                          }}
-                        />
-                        <span className="text-xs text-white/60">Logo preview</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleTeamFieldChange('logo', '')}
-                        className="rounded-full border border-red-400/40 px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-red-200 transition hover:border-red-200 hover:bg-red-500/10"
-                      >
-                        Verwijder
-                      </button>
+                      <span className="text-xs text-white/60">Logo preview</span>
                     </div>
                   )}
                 </div>
@@ -1516,40 +1199,6 @@ export default function AdminPage() {
                             onChange={handleTeamMatchMetaChange(match.id, 'court')}
                           />
                         </div>
-                        <div className="mt-3 grid gap-3 md:grid-cols-2">
-                          <Field
-                            label="Match titel"
-                            value={match.details?.title ?? ''}
-                            placeholder="Bijv. Clash of Titans"
-                            onChange={handleTeamMatchDetailChange(match.id, 'title')}
-                          />
-                          <Field
-                            label="Subtitel"
-                            value={match.details?.subtitle ?? ''}
-                            placeholder="Extra context"
-                            onChange={handleTeamMatchDetailChange(match.id, 'subtitle')}
-                          />
-                        </div>
-                        <TextAreaField
-                          label="Beschrijving"
-                          value={match.details?.description ?? ''}
-                          onChange={handleTeamMatchDetailChange(match.id, 'description')}
-                          placeholder="Korte wedstrijdtekst..."
-                        />
-                        <div className="mt-3 grid gap-3 md:grid-cols-2">
-                          <Field
-                            label="Schema notitie"
-                            value={match.details?.scheduleNote ?? ''}
-                            placeholder="Bijv. Check-in 15 min eerder"
-                            onChange={handleTeamMatchDetailChange(match.id, 'scheduleNote')}
-                          />
-                          <Field
-                            label="Prijzengeld"
-                            value={match.details?.prizeInfo ?? ''}
-                            placeholder="Bijv. €1.000 + trofee"
-                            onChange={handleTeamMatchDetailChange(match.id, 'prizeInfo')}
-                          />
-                        </div>
                       </div>
                     ))}
                   </div>
@@ -1565,10 +1214,7 @@ export default function AdminPage() {
                   Opslaan
                 </button>
                 <button
-                  onClick={() => {
-                    setIsTeamModalOpen(false);
-                    setEditingTeamId(null);
-                  }}
+                  onClick={closeTeamModal}
                   className="rounded-full border border-white/20 px-6 py-2 text-sm font-semibold uppercase tracking-widest text-white transition hover:border-white/40 hover:bg-white/10"
                 >
                   Annuleren
@@ -1674,22 +1320,13 @@ function ColorPickerField({
   value,
   onChange,
   description,
-  warnings = [],
-  contrastLabel,
-  recommendedTextColor,
-  isValid = true,
 }: {
   label: string;
   value: string;
   description?: string;
   onChange: (value: string) => void;
-  warnings?: string[];
-  contrastLabel?: string;
-  recommendedTextColor?: string;
-  isValid?: boolean;
 }) {
-  const sanitizedValue = normalizeHex(value, '#000000');
-  const previewTextColor = recommendedTextColor ?? getReadableTextColor(sanitizedValue);
+  const sanitizedValue = /^#([0-9a-f]{3}){1,2}$/i.test(value) ? value : '#000000';
 
   const handleInput = (nextValue: string) => {
     const formatted = nextValue.startsWith('#') ? nextValue : `#${nextValue}`;
@@ -1702,30 +1339,10 @@ function ColorPickerField({
         <div>
           <p className="text-xs uppercase tracking-[0.35em] text-white/60">{label}</p>
           {description && <p className="text-[11px] text-white/50">{description}</p>}
-          {contrastLabel && (
-            <p className="text-[11px] text-white/40 mt-1">{contrastLabel}</p>
-          )}
         </div>
         <span className="font-mono text-xs text-white/70">{sanitizedValue.toUpperCase()}</span>
       </div>
-      {(!isValid || warnings.length > 0) && (
-        <div className="mt-3 space-y-2">
-          {!isValid && (
-            <p className="rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs text-red-100">
-              Voer een geldige hex kleur in (bijv. #AABBCC).
-            </p>
-          )}
-          {warnings.map((warning) => (
-            <p
-              key={warning}
-              className="rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs text-amber-100"
-            >
-              {warning}
-            </p>
-          ))}
-        </div>
-      )}
-      <div className="mt-3 flex flex-wrap items-center gap-3">
+      <div className="mt-3 flex items-center gap-3">
         <input
           type="color"
           value={sanitizedValue}
@@ -1740,28 +1357,14 @@ function ColorPickerField({
           className="flex-1 rounded-xl border border-white/10 bg-black/40 px-4 py-2 font-mono text-sm uppercase tracking-[0.2em] text-white outline-none transition focus:border-white/40"
           placeholder="#000000"
         />
-        <div className="flex items-center gap-3">
-          <div
-            className="h-12 w-12 rounded-xl border border-white/10"
-            style={{
-              background: sanitizedValue,
-            }}
-            aria-hidden="true"
-          />
-          <div
-            className="rounded-xl border border-white/10 px-3 py-2 text-xs font-semibold uppercase tracking-widest"
-            style={{
-              background: sanitizedValue,
-              color: previewTextColor,
-            }}
-          >
-            Voorbeeld
-          </div>
-        </div>
+        <div
+          className="h-12 w-12 rounded-xl border border-white/10"
+          style={{
+            background: sanitizedValue,
+          }}
+          aria-hidden="true"
+        />
       </div>
-      <p className="mt-2 text-[11px] uppercase tracking-[0.35em] text-white/40">
-        Aanbevolen tekstkleur: {previewTextColor.toUpperCase()}
-      </p>
     </div>
   );
 }
