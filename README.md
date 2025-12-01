@@ -27,7 +27,7 @@ Een Next.js App Router-project voor het ontwerpen, beheren en presenteren van es
 ## Feature highlights
 
 - **Realtime bracket experience**
-  - Hero-statistieken, ronde-overzichten en statusbolletjes (grijs = afgerond, rood = live, groen = komend).
+  - Hero-statistieken, ronde-overzichten en statusbolletjes (grijs = afgerond, rood = live, blauw = komend).
   - View-modi: live, completed, scheduled en draws (`BracketOverview` toont de volledige tree).
   - Framer Motion-animaties, hover states en focusmodus per ronde.
   - `MatchCard` bevat expand/collapse, scorebadges en hints naar “volgende match”.

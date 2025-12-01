@@ -292,11 +292,11 @@ export default function BracketContainer() {
                 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest"
                 style={{ color: '#F2F1EF', opacity: 0.8 }}
               >
-                <span className="inline-flex h-2 w-2 rounded-full bg-[#10b981]" />
+                <span className="inline-flex h-2 w-2 rounded-full bg-[#9ca3af]" />
                 Afgerond
-                <span className="inline-flex h-2 w-2 rounded-full bg-[#facc15]" />
+                <span className="inline-flex h-2 w-2 rounded-full bg-[#ef4444]" />
                 Live
-                <span className="inline-flex h-2 w-2 rounded-full bg-[#f87171]" />
+                <span className="inline-flex h-2 w-2 rounded-full bg-[#3b82f6]" />
                 Komend
               </div>
             </div>
@@ -337,20 +337,20 @@ export default function BracketContainer() {
                       style={{
                         color:
                           round.status === 'complete'
-                            ? '#10b981'
+                            ? '#9ca3af'
                             : round.status === 'in-progress'
-                              ? '#fcd34d'
-                              : '#f87171',
+                              ? '#ef4444'
+                              : '#3b82f6',
                       }}
                     >
                       <span className="h-1.5 w-1.5 rounded-full"
                         style={{
                           backgroundColor:
                             round.status === 'complete'
-                              ? '#10b981'
+                              ? '#9ca3af'
                               : round.status === 'in-progress'
-                                ? '#fcd34d'
-                                : '#f87171',
+                                ? '#ef4444'
+                                : '#3b82f6',
                         }}
                       />
                       {round.status === 'complete' && 'Klaar'}

@@ -3,8 +3,9 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useBracketStore } from '@/app/store/bracketStore';
-import type { Team, BracketType, Match } from '@/app/types/bracket';
+import type { Team, BracketType, Match, BracketSettings } from '@/app/types/bracket';
 import { useMemo, useState } from 'react';
+import { getContrastRatio, normalizeHex } from '@/app/utils/colorUtils';
 
 export default function AdminPage() {
   const {
@@ -505,6 +506,8 @@ export default function AdminPage() {
                   description={colorSetting.description}
                   value={settings[colorSetting.key]}
                   onChange={(value) => setSettings({ [colorSetting.key]: value })}
+                  allSettings={settings}
+                  currentKey={colorSetting.key}
                 />
               ))}
             </div>
@@ -766,47 +769,6 @@ export default function AdminPage() {
                   </div>
                 ))}
               </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <Field
-                  label="Starttijd"
-                  value={selectedMatch.startTime ?? ''}
-                  placeholder="14:30"
-                  onChange={(value) => handleMatchFieldChange('startTime', value)}
-                />
-                <Field
-                  label="Locatie"
-                  value={selectedMatch.court ?? ''}
-                  placeholder="Main Arena"
-                  onChange={(value) => handleMatchFieldChange('court', value)}
-                />
-              </div>
-
-              <Field
-                label="Titel"
-                value={selectedMatch.details?.title ?? ''}
-                onChange={(value) => handleMatchDetailChange('title', value)}
-              />
-              <Field
-                label="Subtitel"
-                value={selectedMatch.details?.subtitle ?? ''}
-                onChange={(value) => handleMatchDetailChange('subtitle', value)}
-              />
-              <TextAreaField
-                label="Beschrijving"
-                value={selectedMatch.details?.description ?? ''}
-                onChange={(value) => handleMatchDetailChange('description', value)}
-              />
-              <Field
-                label="Schema notitie"
-                value={selectedMatch.details?.scheduleNote ?? ''}
-                onChange={(value) => handleMatchDetailChange('scheduleNote', value)}
-              />
-              <Field
-                label="Prijzengeld"
-                value={selectedMatch.details?.prizeInfo ?? ''}
-                onChange={(value) => handleMatchDetailChange('prizeInfo', value)}
-              />
             </div>
           ) : (
             <p className="mt-6 text-sm text-white/60">
@@ -1166,10 +1128,10 @@ export default function AdminPage() {
                       Matchplanning ({teamMatchesForEditingTeam.length})
                     </h3>
                     <p className="text-xs text-white/60">
-                      Pas starttijd en locatie per match aan zonder het matchbeheer te openen.
+                      Pas starttijd, locatie en matchdetails per match aan.
                     </p>
                   </div>
-                  <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+                  <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
                     {teamMatchesForEditingTeam.map(({ match, bracketName, roundName }) => (
                       <div
                         key={match.id}
@@ -1185,18 +1147,75 @@ export default function AdminPage() {
                           {match.teams[0]?.name ?? 'TBD'}{' '}
                           <span className="text-white/50">vs</span> {match.teams[1]?.name ?? 'TBD'}
                         </p>
-                        <div className="mt-3 grid gap-3 md:grid-cols-2">
+                        <div className="mt-3 space-y-3">
+                          <div className="grid gap-3 md:grid-cols-2">
+                            <Field
+                              label="Starttijd"
+                              value={match.startTime ?? ''}
+                              placeholder="14:30"
+                              onChange={handleTeamMatchMetaChange(match.id, 'startTime')}
+                            />
+                            <Field
+                              label="Locatie"
+                              value={match.court ?? ''}
+                              placeholder="Main Arena"
+                              onChange={handleTeamMatchMetaChange(match.id, 'court')}
+                            />
+                          </div>
                           <Field
-                            label="Starttijd"
-                            value={match.startTime ?? ''}
-                            placeholder="14:30"
-                            onChange={handleTeamMatchMetaChange(match.id, 'startTime')}
+                            label="Titel"
+                            value={match.details?.title ?? ''}
+                            onChange={(value) => {
+                              updateMatchDetails(match.id, {
+                                details: {
+                                  title: value,
+                                },
+                              });
+                            }}
                           />
                           <Field
-                            label="Locatie"
-                            value={match.court ?? ''}
-                            placeholder="Main Arena"
-                            onChange={handleTeamMatchMetaChange(match.id, 'court')}
+                            label="Subtitel"
+                            value={match.details?.subtitle ?? ''}
+                            onChange={(value) => {
+                              updateMatchDetails(match.id, {
+                                details: {
+                                  subtitle: value,
+                                },
+                              });
+                            }}
+                          />
+                          <TextAreaField
+                            label="Beschrijving"
+                            value={match.details?.description ?? ''}
+                            onChange={(value) => {
+                              updateMatchDetails(match.id, {
+                                details: {
+                                  description: value,
+                                },
+                              });
+                            }}
+                          />
+                          <Field
+                            label="Schema notitie"
+                            value={match.details?.scheduleNote ?? ''}
+                            onChange={(value) => {
+                              updateMatchDetails(match.id, {
+                                details: {
+                                  scheduleNote: value,
+                                },
+                              });
+                            }}
+                          />
+                          <Field
+                            label="Prijzengeld"
+                            value={match.details?.prizeInfo ?? ''}
+                            onChange={(value) => {
+                              updateMatchDetails(match.id, {
+                                details: {
+                                  prizeInfo: value,
+                                },
+                              });
+                            }}
                           />
                         </div>
                       </div>
@@ -1320,21 +1339,93 @@ function ColorPickerField({
   value,
   onChange,
   description,
+  allSettings,
+  currentKey,
 }: {
   label: string;
   value: string;
   description?: string;
   onChange: (value: string) => void;
+  allSettings: BracketSettings;
+  currentKey: 'primaryColor' | 'secondaryColor' | 'backgroundColor';
 }) {
-  const sanitizedValue = /^#([0-9a-f]{3}){1,2}$/i.test(value) ? value : '#000000';
+  const sanitizedValue = normalizeHex(value, '#000000');
+  
+  // Check contrast issues
+  const contrastIssues = useMemo(() => {
+    const issues: Array<{ message: string; severity: 'warning' | 'error' }> = [];
+    const normalizedCurrent = normalizeHex(value, '#000000');
+    
+    if (currentKey === 'primaryColor') {
+      const bgContrast = getContrastRatio(normalizedCurrent, normalizeHex(allSettings.backgroundColor, '#111827'));
+      if (bgContrast < 3) {
+        issues.push({
+          message: `Lage contrast met achtergrond (${bgContrast.toFixed(2)}:1). Tekst kan moeilijk leesbaar zijn.`,
+          severity: bgContrast < 2 ? 'error' : 'warning',
+        });
+      }
+      const secondaryContrast = getContrastRatio(normalizedCurrent, normalizeHex(allSettings.secondaryColor, '#420AB2'));
+      if (secondaryContrast < 2) {
+        issues.push({
+          message: `Primaire en secundaire kleur zijn te vergelijkbaar (${secondaryContrast.toFixed(2)}:1). Ze kunnen niet goed onderscheiden worden.`,
+          severity: 'warning',
+        });
+      }
+    }
+    
+    if (currentKey === 'secondaryColor') {
+      const bgContrast = getContrastRatio(normalizedCurrent, normalizeHex(allSettings.backgroundColor, '#111827'));
+      if (bgContrast < 3) {
+        issues.push({
+          message: `Lage contrast met achtergrond (${bgContrast.toFixed(2)}:1). Tekst kan moeilijk leesbaar zijn.`,
+          severity: bgContrast < 2 ? 'error' : 'warning',
+        });
+      }
+      const primaryContrast = getContrastRatio(normalizedCurrent, normalizeHex(allSettings.primaryColor, '#482CFF'));
+      if (primaryContrast < 2) {
+        issues.push({
+          message: `Secundaire en primaire kleur zijn te vergelijkbaar (${primaryContrast.toFixed(2)}:1). Ze kunnen niet goed onderscheiden worden.`,
+          severity: 'warning',
+        });
+      }
+    }
+    
+    if (currentKey === 'backgroundColor') {
+      const primaryContrast = getContrastRatio(normalizeHex(allSettings.primaryColor, '#482CFF'), normalizedCurrent);
+      if (primaryContrast < 3) {
+        issues.push({
+          message: `Primaire kleur heeft lage contrast met achtergrond (${primaryContrast.toFixed(2)}:1). Tekst kan moeilijk leesbaar zijn.`,
+          severity: primaryContrast < 2 ? 'error' : 'warning',
+        });
+      }
+      const secondaryContrast = getContrastRatio(normalizeHex(allSettings.secondaryColor, '#420AB2'), normalizedCurrent);
+      if (secondaryContrast < 3) {
+        issues.push({
+          message: `Secundaire kleur heeft lage contrast met achtergrond (${secondaryContrast.toFixed(2)}:1). Tekst kan moeilijk leesbaar zijn.`,
+          severity: secondaryContrast < 2 ? 'error' : 'warning',
+        });
+      }
+    }
+    
+    return issues;
+  }, [value, allSettings, currentKey]);
 
   const handleInput = (nextValue: string) => {
     const formatted = nextValue.startsWith('#') ? nextValue : `#${nextValue}`;
     onChange(formatted.slice(0, 7));
   };
 
+  const hasIssues = contrastIssues.length > 0;
+  const hasErrors = contrastIssues.some(issue => issue.severity === 'error');
+
   return (
-    <div className="rounded-2xl border border-white/10 bg-black/30 p-4 text-sm">
+    <div className={`rounded-2xl border p-4 text-sm transition ${
+      hasErrors 
+        ? 'border-red-400/60 bg-red-500/10' 
+        : hasIssues 
+        ? 'border-yellow-400/60 bg-yellow-500/10' 
+        : 'border-white/10 bg-black/30'
+    }`}>
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-[0.35em] text-white/60">{label}</p>
@@ -1354,7 +1445,13 @@ function ColorPickerField({
           type="text"
           value={value}
           onChange={(event) => handleInput(event.target.value)}
-          className="flex-1 rounded-xl border border-white/10 bg-black/40 px-4 py-2 font-mono text-sm uppercase tracking-[0.2em] text-white outline-none transition focus:border-white/40"
+          className={`flex-1 rounded-xl border px-4 py-2 font-mono text-sm uppercase tracking-[0.2em] text-white outline-none transition ${
+            hasErrors
+              ? 'border-red-400/60 bg-red-500/20 focus:border-red-400'
+              : hasIssues
+              ? 'border-yellow-400/60 bg-yellow-500/20 focus:border-yellow-400'
+              : 'border-white/10 bg-black/40 focus:border-white/40'
+          }`}
           placeholder="#000000"
         />
         <div
@@ -1365,6 +1462,64 @@ function ColorPickerField({
           aria-hidden="true"
         />
       </div>
+      
+      {hasIssues && (
+        <div className="mt-3 space-y-2">
+          {contrastIssues.map((issue, index) => (
+            <div
+              key={index}
+              className={`flex items-start gap-2 rounded-lg border px-3 py-2 text-xs ${
+                issue.severity === 'error'
+                  ? 'border-red-400/40 bg-red-500/20 text-red-200'
+                  : 'border-yellow-400/40 bg-yellow-500/20 text-yellow-200'
+              }`}
+            >
+              <svg
+                className={`h-4 w-4 mt-0.5 flex-shrink-0 ${
+                  issue.severity === 'error' ? 'text-red-300' : 'text-yellow-300'
+                }`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                {issue.severity === 'error' ? (
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                ) : (
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                  />
+                )}
+              </svg>
+              <span className="flex-1">{issue.message}</span>
+            </div>
+          ))}
+          <div className="text-[11px] text-white/50 mt-2">
+            <strong>Tip:</strong> Voor goede leesbaarheid is een contrastratio van minimaal 4.5:1 aanbevolen (WCAG AA), en 7:1 voor optimale toegankelijkheid (WCAG AAA).
+          </div>
+        </div>
+      )}
+      
+      {!hasIssues && (
+        <div className="mt-3 flex items-center gap-2 text-xs text-emerald-400/80">
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
+          <span>Goede contrastverhouding met andere kleuren</span>
+        </div>
+      )}
     </div>
   );
 }
