@@ -218,3 +218,4 @@ export async function getMatch(matchId: string): Promise<Match | null> {
   return buildMatchFromSupabase(match, teamA, teamB, details);
 }
 
+

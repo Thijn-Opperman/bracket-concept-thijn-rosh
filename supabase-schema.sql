@@ -218,3 +218,4 @@ CREATE POLICY "Allow public delete access" ON match_details FOR DELETE USING (tr
 CREATE POLICY "Allow public delete access" ON match_media_links FOR DELETE USING (true);
 CREATE POLICY "Allow public delete access" ON match_sponsors FOR DELETE USING (true);
 
+

@@ -37,14 +37,16 @@ Een Next.js App Router-project voor het ontwerpen, beheren en presenteren van es
   - Onboarding header met tellingen (teams, brackets, rondes) en snelkoppeling terug naar de publieke bracket.
   - Toernooi-info: pas serie, titel en beschrijving aan.
   - Bracket settings: single/double elimination, primaire/secundaire/background kleuren via `ColorPickerField`.
+  - **Supabase Database Sync**: maak tournaments aan, laad bestaande tournaments, of schakel tussen lokaal (localStorage) en Supabase-opslag. Alle wijzigingen worden automatisch gesynct wanneer een tournament actief is.
   - Teambeheer: zoeken/filteren, dubbele naamdetectie, spelersoverzicht, modals voor CRUD-acties en matchgeschiedenis per team.
   - Matchbeheer: kies bracket/ronde/match, valideer dat teams niet dubbel voorkomen, stel scores, winnaars en metadata (tijd, court, beschrijving, prizeInfo, schedule notes) in.
   - Consistente UX via custom form helpers (`Field`, `TextAreaField`, `SelectField`, ...).
 
-- **State management via Zustand + persist**
+- **State management via Zustand + persist + Supabase sync**
   - Centrale store (`app/store/bracketStore.ts`) bewaart teams, brackets, settings, geselecteerde match en view state.
   - Persist middleware slaat state lokaal op (`localStorage`), `useSyncExternalStore` voorkomt hydration flash.
-  - Acties zoals `setWinner` pushen winnaars automatisch door naar volgende rondes:
+  - **Automatische Supabase sync**: wanneer `tournamentId` is ingesteld, worden alle wijzigingen (teams, matches, settings) automatisch naar Supabase gesynct.
+  - Acties zoals `setWinner` pushen winnaars automatisch door naar volgende rondes en syncen naar Supabase:
 
     ```ts
     setWinner: (matchId, winnerIndex) => {
@@ -74,8 +76,13 @@ Een Next.js App Router-project voor het ontwerpen, beheren en presenteren van es
   - Ondersteunt single- en eenvoudige double-elimination.
   - Vult byes aan tot een macht van twee, genereert standaard `MatchDetails` (streams, hashtags, sponsors) en distribueert starttijden/courts.
 
-- **Supabase-ready**
-  - `lib/supabase/client.ts` en `lib/supabase/server.ts` maken SSR/browser-clients aan en valideren env vars vroeg zodat builds niet stil falen.
+- **Volledige Supabase-integratie**
+  - Persistente database opslag voor tournaments, teams, brackets, matches en details.
+  - Automatische synchronisatie: alle wijzigingen worden real-time gesynct naar Supabase wanneer een tournament actief is.
+  - Service-laag: `app/services/` bevat volledige CRUD-operaties voor tournaments, teams, brackets en matches.
+  - Admin-interface: maak nieuwe tournaments aan, laad bestaande tournaments, of schakel tussen lokaal en Supabase-opslag.
+  - Database schema: `supabase-schema.sql` bevat het complete schema met RLS policies.
+  - Transformers: `app/utils/supabaseTransformers.ts` converteert tussen app types en Supabase database types.
 
 ---
 
@@ -99,24 +106,34 @@ app/
   globals.css            # Tailwind v4 + custom styles
   favicon.ico
   page.tsx               # Publieke bracket experience
-  admin/page.tsx         # Volledige admin console
+  admin/page.tsx         # Volledige admin console + Supabase management
   components/
     BracketContainer.tsx
     BracketOverview.tsx
     MatchCard.tsx
     MatchDetailsPanel.tsx
     TeamSlot.tsx
+  services/              # Supabase service laag
+    bracketService.ts    # Bracket CRUD operaties
+    matchService.ts      # Match CRUD operaties
+    supabaseSync.ts      # Store synchronisatie helpers
+    teamService.ts       # Team CRUD operaties
+    tournamentService.ts # Tournament CRUD operaties
   store/
-    bracketStore.ts      # Zustand store + persist logica
+    bracketStore.ts      # Zustand store + persist + Supabase sync
   types/
     bracket.ts           # Core type definities
   utils/
     bracketGenerator.ts  # Bracket generator + defaults
     colorUtils.ts        # Kleurhelpers & contrast checks
+    supabaseTransformers.ts # Type transformers App ↔ Supabase
 lib/
   supabase/
     client.ts            # Browser client helper
     server.ts            # SSR client helper
+supabase/
+  migrations/            # Database migrations (optioneel)
+supabase-schema.sql      # Volledig database schema voor Supabase
 public/
   ...                    # Assets / placeholders voor branding
 eslint.config.mjs
@@ -132,8 +149,8 @@ package.json
 
 - Node.js 20 LTS (of hoger compatibel met Next.js 16)
 - npm 10+
-- Een Supabase-project als je echte persistente data wilt (optioneel)
-- Moderne browser met `localStorage` support (voor admin state)
+- Een Supabase-project voor persistente database opslag (aanbevolen, maar optioneel - app werkt ook lokaal)
+- Moderne browser met `localStorage` support (voor lokale state backup)
 
 ---
 
@@ -148,7 +165,11 @@ npm run dev
 
 Open `http://localhost:3000/` voor de publieke bracket en `http://localhost:3000/admin` voor beheer.
 
-Maak (optioneel) een `.env.local` met de Supabase-variabelen uit de [Environment & configuratie](#environment--configuratie) sectie.
+**Supabase setup (optioneel maar aanbevolen):**
+1. Maak een `.env.local` met de Supabase-variabelen (zie [Environment & configuratie](#environment--configuratie)).
+2. Open Supabase dashboard en voer `supabase-schema.sql` uit in de SQL Editor.
+3. Ga naar `/admin` en klik op "Nieuw Tournament Aanmaken" om Supabase sync te activeren.
+4. Vanaf dat moment worden alle wijzigingen automatisch opgeslagen in Supabase.
 
 > Tailwind v4 loopt via PostCSS; er is geen aparte `tailwind.config.js` nodig.
 
@@ -172,11 +193,14 @@ Maak (optioneel) een `.env.local` met de Supabase-variabelen uit de [Environment
    - Wissel tussen live/completed/scheduled/draws.
    - Gebruik hover/focus om detailpanelen te openen.
 3. Admin (`/admin`):
-   - Maak teams aan (logo, spelers, socials).
+   - **Supabase setup**: maak een nieuw tournament aan of laad een bestaand tournament via ID.
+   - Maak teams aan (logo, spelers, socials) - wordt automatisch naar Supabase gesynct als tournament actief is.
    - Kies bracket/ronde/match, wijs teams toe, stel scores en metadata in.
-   - Markeer winnaars en zie ze automatisch doorstromen.
-   - Pas kleuren en toernooi-info aan om direct live feedback te zien.
-4. State wordt automatisch opgeslagen in `localStorage` zodat refreshes veilig zijn.
+   - Markeer winnaars en zie ze automatisch doorstromen (wordt gesynct naar Supabase).
+   - Pas kleuren en toernooi-info aan om direct live feedback te zien (wordt gesynct naar Supabase).
+4. State wordt automatisch opgeslagen:
+   - **Lokaal**: altijd in `localStorage` als backup.
+   - **Supabase**: automatisch wanneer een tournament actief is (via `tournamentId`).
 
 ---
 
@@ -185,7 +209,14 @@ Maak (optioneel) een `.env.local` met de Supabase-variabelen uit de [Environment
 - UI-componenten zijn opgesplitst per functie (`BracketContainer`, `MatchCard`, `MatchDetailsPanel`, `TeamSlot`).
 - `bracketStore` bewaakt alle business logica: bracketstructuur, matchvalidaties, kleurthema's en view state.
 - `bracketGenerator` bouwt standaard data op basis van teams en settings.
-- Supabase-clients zijn voorbereid voor toekomstige persistente opslag; momenteel draait alles client-side.
+- **Supabase service laag**: volledige CRUD-operaties via `app/services/`:
+  - `tournamentService.ts`: tournament instellingen
+  - `teamService.ts`: teams en spelers
+  - `matchService.ts`: matches en match details
+  - `bracketService.ts`: bracket structuur
+  - `supabaseSync.ts`: synchronisatie helpers tussen store en Supabase
+- **Automatische sync**: wanneer `tournamentId` is ingesteld, worden alle store-acties automatisch naar Supabase gesynct.
+- **Dual storage**: state wordt zowel lokaal (`localStorage`) als in Supabase opgeslagen voor robuustheid.
 
 ---
 
@@ -198,7 +229,15 @@ Plaats de volgende variables in `.env.local` (en hostingplatform):
 | `NEXT_PUBLIC_SUPABASE_URL`      | Basis-URL van je Supabase-project.     |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Public anon key voor Supabase clients. |
 
-Zodra een variabele ontbreekt, gooien de helpers een duidelijke fout tijdens build of runtime.
+**Database setup:**
+1. Maak een nieuw Supabase project op [supabase.com](https://supabase.com).
+2. Ga naar SQL Editor en kopieer de inhoud van `supabase-schema.sql`.
+3. Voer het SQL-script uit om alle tabellen, indexes en RLS policies aan te maken.
+4. Kopieer je project URL en anon key naar `.env.local`.
+
+> **Let op**: De app werkt ook zonder Supabase (alleen lokaal via localStorage). Supabase is optioneel maar aanbevolen voor productie gebruik.
+
+Zodra een variabele ontbreekt, werken de Supabase-functies niet maar crasht de app niet. Je kunt gewoon lokaal werken.
 
 ---
 
@@ -223,19 +262,22 @@ Zodra een variabele ontbreekt, gooien de helpers een duidelijke fout tijdens bui
 
 ## Known limitations & roadmap
 
-- Client-side persistence only: alle data leeft in `localStorage`.
+- **Opslag**: Data wordt zowel lokaal (`localStorage`) als in Supabase opgeslagen. Supabase sync is alleen actief wanneer een `tournamentId` is ingesteld via de admin interface.
 - Double elimination is een vereenvoudigde losers-bracket, niet 1:1 met officiële circuits.
-- Geen auth/ACL: `/admin` is voor demo-doeleinden publiek.
+- Geen auth/ACL: `/admin` is voor demo-doeleinden publiek. In productie zou je authenticatie moeten toevoegen.
 - Geen productiescreenshots of assets meegeleverd; voeg eigen branding toe voor showcases.
+- Supabase sync is optioneel: de app werkt volledig standalone met localStorage als Supabase niet is geconfigureerd.
 
 ---
 
 ## Submission checklist
 
-- [ ] `.env.local` bevat geldige Supabase keys (of mock waarden).
+- [ ] `.env.local` bevat geldige Supabase keys (optioneel - app werkt ook zonder).
 - [ ] `npm install` + `npm run build` draaien zonder fouten.
 - [ ] `npm run lint` is uitgevoerd (lokaal, buiten sandbox indien nodig).
 - [ ] Minimaal één teams- en bracketconfiguratie getest in `/admin`.
+- [ ] Supabase database schema is aangemaakt (als je Supabase gebruikt).
+- [ ] Supabase sync is getest: maak een tournament aan en controleer of data wordt opgeslagen.
 - [ ] Documentatie (dit bestand) is up-to-date en meegestuurd.
 - [ ] Optionele screenshots of demo-video toegevoegd aan `public/` of je inleverplatform.
 
