@@ -21,6 +21,12 @@ export default function AdminPage() {
     getMatchById,
     settings,
     setSettings,
+    tournamentId,
+    createTournamentInSupabase,
+    setTournamentId,
+    loadFromSupabase,
+    syncToSupabase,
+    isSyncing,
   } = useBracketStore();
 
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
@@ -32,6 +38,9 @@ export default function AdminPage() {
   const [editingTeamDraft, setEditingTeamDraft] = useState<Team | null>(null);
   const [teamSearchTerm, setTeamSearchTerm] = useState('');
   const [teamSelectionError, setTeamSelectionError] = useState<string | null>(null);
+  const [tournamentIdInput, setTournamentIdInput] = useState('');
+  const [isCreatingTournament, setIsCreatingTournament] = useState(false);
+  const [isLoadingTournament, setIsLoadingTournament] = useState(false);
   const selectedBracket = useMemo(() => {
     if (brackets.length === 0) return undefined;
     if (selectedBracketId) {
@@ -468,6 +477,120 @@ export default function AdminPage() {
                 </button>
               ))}
             </div>
+          </section>
+
+          {/* Supabase Sync */}
+          <section className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl shadow-black/30 backdrop-blur">
+            <div>
+              <p className="text-xs uppercase tracking-[0.35em] text-white/60">
+                Database Sync
+              </p>
+              <h2 className="text-2xl font-semibold text-white">Supabase</h2>
+              <p className="mt-1 text-xs text-white/60">
+                Sla alles op in Supabase voor persistente opslag.
+              </p>
+            </div>
+            
+            {tournamentId ? (
+              <div className="mt-4 space-y-3">
+                <div className="rounded-xl border border-green-400/30 bg-green-500/10 p-3">
+                  <p className="text-xs font-semibold text-green-400">✓ Actief</p>
+                  <p className="text-xs text-white/70 mt-1">
+                    Tournament ID: <span className="font-mono text-green-300">{tournamentId}</span>
+                  </p>
+                  <p className="text-xs text-white/60 mt-1">
+                    Alle wijzigingen worden automatisch opgeslagen in Supabase.
+                  </p>
+                </div>
+                
+                <button
+                  onClick={async () => {
+                    try {
+                      await syncToSupabase();
+                      alert('✅ Alles gesynced naar Supabase!');
+                    } catch (error) {
+                      alert(`❌ Fout bij syncen: ${error instanceof Error ? error.message : 'Onbekende fout'}`);
+                    }
+                  }}
+                  disabled={isSyncing}
+                  className="w-full rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/20 disabled:opacity-50"
+                >
+                  {isSyncing ? '⏳ Syncen...' : '🔄 Handmatig Syncen'}
+                </button>
+                
+                <button
+                  onClick={() => {
+                    if (window.confirm('Weet je zeker dat je de Supabase verbinding wilt verbreken? Alle wijzigingen worden dan alleen lokaal opgeslagen.')) {
+                      setTournamentId(null);
+                      setTournamentIdInput('');
+                    }
+                  }}
+                  className="w-full rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-400 transition hover:bg-red-500/20"
+                >
+                  Verbreek Verbinding
+                </button>
+              </div>
+            ) : (
+              <div className="mt-4 space-y-3">
+                <button
+                  onClick={async () => {
+                    setIsCreatingTournament(true);
+                    try {
+                      const id = await createTournamentInSupabase();
+                      if (id) {
+                        alert(`✅ Tournament aangemaakt! ID: ${id}`);
+                        setTournamentIdInput(id);
+                      } else {
+                        alert('❌ Kon tournament niet aanmaken. Check de console voor details.');
+                      }
+                    } catch (error) {
+                      alert(`❌ Fout bij aanmaken: ${error instanceof Error ? error.message : 'Onbekende fout'}`);
+                    } finally {
+                      setIsCreatingTournament(false);
+                    }
+                  }}
+                  disabled={isCreatingTournament || isSyncing}
+                  className="w-full rounded-xl border border-green-400/50 bg-green-500/20 px-4 py-3 text-sm font-semibold text-green-300 transition hover:bg-green-500/30 disabled:opacity-50"
+                >
+                  {isCreatingTournament ? '⏳ Aanmaken...' : '➕ Nieuw Tournament Aanmaken'}
+                </button>
+                
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={tournamentIdInput}
+                    onChange={(e) => setTournamentIdInput(e.target.value)}
+                    placeholder="Plak hier een tournament ID..."
+                    className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-2 text-sm text-white placeholder:text-white/40 outline-none transition focus:border-white/40"
+                  />
+                  <button
+                    onClick={async () => {
+                      if (!tournamentIdInput.trim()) {
+                        alert('Voer eerst een tournament ID in.');
+                        return;
+                      }
+                      setIsLoadingTournament(true);
+                      try {
+                        const success = await loadFromSupabase(tournamentIdInput.trim());
+                        if (success) {
+                          alert('✅ Tournament geladen uit Supabase!');
+                        } else {
+                          alert('❌ Kon tournament niet laden. Check of het ID klopt.');
+                        }
+                      } catch (error) {
+                        alert(`❌ Fout bij laden: ${error instanceof Error ? error.message : 'Onbekende fout'}`);
+                      } finally {
+                        setIsLoadingTournament(false);
+                      }
+                    }}
+                    disabled={isLoadingTournament || isSyncing || !tournamentIdInput.trim()}
+                    className="mt-2 w-full rounded-xl border border-blue-400/50 bg-blue-500/20 px-4 py-2 text-sm font-semibold text-blue-300 transition hover:bg-blue-500/30 disabled:opacity-50"
+                  >
+                    {isLoadingTournament ? '⏳ Laden...' : '📥 Laad Tournament'}
+                  </button>
+                </div>
+              </div>
+            )}
           </section>
 
           {/* Bracket Colors */}

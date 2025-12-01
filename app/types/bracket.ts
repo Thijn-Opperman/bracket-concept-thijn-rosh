@@ -105,5 +105,7 @@ export type BracketState = {
   isAdminMode: boolean;
   showHistory: boolean;
   viewMode: ViewMode;
+  tournamentId: string | null;
+  isSyncing: boolean;
 };
 
