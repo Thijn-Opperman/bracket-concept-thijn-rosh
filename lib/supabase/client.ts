@@ -17,10 +17,10 @@ export const createClient = () => {
     );
     // Don't throw - allow app to work without Supabase (optional feature)
     // Return a dummy client that will fail gracefully
-    throw new Error(
-      "Supabase variabelen ontbreken. Voeg NEXT_PUBLIC_SUPABASE_URL en NEXT_PUBLIC_SUPABASE_ANON_KEY toe aan je environment."
-    );
-  }
+  throw new Error(
+    "Supabase variabelen ontbreken. Voeg NEXT_PUBLIC_SUPABASE_URL en NEXT_PUBLIC_SUPABASE_ANON_KEY toe aan je environment."
+  );
+}
 
   return createBrowserClient(url, key);
 };

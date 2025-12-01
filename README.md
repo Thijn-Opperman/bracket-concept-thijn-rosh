@@ -38,6 +38,7 @@ Een Next.js App Router-project voor het ontwerpen, beheren en presenteren van es
   - Toernooi-info: pas serie, titel en beschrijving aan.
   - Bracket settings: single/double elimination, primaire/secundaire/background kleuren via `ColorPickerField`.
   - **Supabase Database Sync**: maak tournaments aan, laad bestaande tournaments, of schakel tussen lokaal (localStorage) en Supabase-opslag. Alle wijzigingen worden automatisch gesynct wanneer een tournament actief is.
+  - **File upload voor logo's**: upload team logo's en branding logo's direct naar Supabase Storage (JPEG, PNG, GIF, WebP, SVG, max 5MB). Als Supabase niet is geconfigureerd, kun je nog steeds URL's gebruiken.
   - Teambeheer: zoeken/filteren, dubbele naamdetectie, spelersoverzicht, modals voor CRUD-acties en matchgeschiedenis per team.
   - Matchbeheer: kies bracket/ronde/match, valideer dat teams niet dubbel voorkomen, stel scores, winnaars en metadata (tijd, court, beschrijving, prizeInfo, schedule notes) in.
   - Consistente UX via custom form helpers (`Field`, `TextAreaField`, `SelectField`, ...).
@@ -116,6 +117,7 @@ app/
   services/              # Supabase service laag
     bracketService.ts    # Bracket CRUD operaties
     matchService.ts      # Match CRUD operaties
+    storageService.ts    # File upload naar Supabase Storage
     supabaseSync.ts      # Store synchronisatie helpers
     teamService.ts       # Team CRUD operaties
     tournamentService.ts # Tournament CRUD operaties
@@ -167,9 +169,10 @@ Open `http://localhost:3000/` voor de publieke bracket en `http://localhost:3000
 
 **Supabase setup (optioneel maar aanbevolen):**
 1. Maak een `.env.local` met de Supabase-variabelen (zie [Environment & configuratie](#environment--configuratie)).
-2. Open Supabase dashboard en voer `supabase-schema.sql` uit in de SQL Editor.
-3. Ga naar `/admin` en klik op "Nieuw Tournament Aanmaken" om Supabase sync te activeren.
-4. Vanaf dat moment worden alle wijzigingen automatisch opgeslagen in Supabase.
+2. Open Supabase dashboard en voer `supabase-schema.sql` uit in de SQL Editor (dit maakt ook de Storage bucket aan voor logo uploads).
+3. Ga naar Storage in het Supabase dashboard en controleer dat de `team-assets` bucket bestaat en publiek toegankelijk is.
+4. Ga naar `/admin` en klik op "Nieuw Tournament Aanmaken" om Supabase sync te activeren.
+5. Vanaf dat moment worden alle wijzigingen automatisch opgeslagen in Supabase, en kun je logo's uploaden in plaats van alleen URL's te gebruiken.
 
 > Tailwind v4 loopt via PostCSS; er is geen aparte `tailwind.config.js` nodig.
 

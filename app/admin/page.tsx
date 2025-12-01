@@ -4,8 +4,9 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useBracketStore } from '@/app/store/bracketStore';
 import type { Team, BracketType, Match, BracketSettings } from '@/app/types/bracket';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef } from 'react';
 import { getContrastRatio, normalizeHex } from '@/app/utils/colorUtils';
+import { uploadFile, isStorageAvailable } from '@/app/services/storageService';
 
 export default function AdminPage() {
   const {
@@ -41,6 +42,14 @@ export default function AdminPage() {
   const [tournamentIdInput, setTournamentIdInput] = useState('');
   const [isCreatingTournament, setIsCreatingTournament] = useState(false);
   const [isLoadingTournament, setIsLoadingTournament] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [uploadingBrandingLogo, setUploadingBrandingLogo] = useState(false);
+  const [uploadingEditLogo, setUploadingEditLogo] = useState(false);
+  const [uploadingEditBrandingLogo, setUploadingEditBrandingLogo] = useState(false);
+  const logoFileInputRef = useRef<HTMLInputElement>(null);
+  const brandingLogoFileInputRef = useRef<HTMLInputElement>(null);
+  const editLogoFileInputRef = useRef<HTMLInputElement>(null);
+  const editBrandingLogoFileInputRef = useRef<HTMLInputElement>(null);
   const selectedBracket = useMemo(() => {
     if (brackets.length === 0) return undefined;
     if (selectedBracketId) {
@@ -137,6 +146,65 @@ export default function AdminPage() {
         [field]: value === '' ? undefined : value,
       };
     });
+  };
+
+  const handleFileUpload = async (
+    file: File,
+    field: 'logo' | 'brandingLogo',
+    isEditing: boolean = false
+  ) => {
+    if (!isStorageAvailable()) {
+      alert('Supabase Storage is niet geconfigureerd. Upload alleen een URL of configureer Supabase eerst.');
+      return;
+    }
+
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+    if (!validTypes.includes(file.type)) {
+      alert('Alleen afbeeldingsbestanden zijn toegestaan (JPEG, PNG, GIF, WebP, SVG)');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Bestand is te groot. Maximum grootte is 5MB.');
+      return;
+    }
+
+    if (isEditing) {
+      if (field === 'logo') {
+        setUploadingEditLogo(true);
+      } else {
+        setUploadingEditBrandingLogo(true);
+      }
+    } else {
+      if (field === 'logo') {
+        setUploadingLogo(true);
+      } else {
+        setUploadingBrandingLogo(true);
+      }
+    }
+
+    try {
+      const url = await uploadFile(file, 'team-logos');
+      if (url) {
+        if (isEditing) {
+          handleTeamFieldChange(field, url);
+        } else {
+          setNewTeamForm({ ...newTeamForm, [field]: url });
+        }
+      } else {
+        alert('Upload mislukt. Probeer het opnieuw of gebruik een URL.');
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert('Upload mislukt. Probeer het opnieuw of gebruik een URL.');
+    } finally {
+      setUploadingLogo(false);
+      setUploadingBrandingLogo(false);
+      setUploadingEditLogo(false);
+      setUploadingEditBrandingLogo(false);
+    }
   };
 
   const handleAddPlayer = () => {
@@ -987,12 +1055,42 @@ export default function AdminPage() {
                 />
               </div>
               <div>
-                <Field
-                  label="Logo URL"
-                  value={newTeamForm.logo ?? ''}
-                  placeholder="https://..."
-                  onChange={(value) => setNewTeamForm({ ...newTeamForm, logo: value })}
-                />
+                <label className="space-y-2 text-sm">
+                  <span className="text-xs uppercase tracking-[0.35em] text-white/50">
+                    Logo
+                  </span>
+                  <div className="flex gap-2">
+                    <input
+                      type="file"
+                      ref={logoFileInputRef}
+                      accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/svg+xml"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          handleFileUpload(file, 'logo', false);
+                        }
+                      }}
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => logoFileInputRef.current?.click()}
+                      disabled={uploadingLogo || !isStorageAvailable()}
+                      className="rounded-xl border border-blue-400/50 bg-blue-500/20 px-4 py-2 text-xs font-semibold text-blue-300 transition hover:bg-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {uploadingLogo ? '⏳ Uploaden...' : '📤 Upload'}
+                    </button>
+                    <div className="flex-1 text-xs text-white/50 flex items-center">
+                      {!isStorageAvailable() && <span className="text-yellow-400">(URL alleen)</span>}
+                    </div>
+                  </div>
+                  <Field
+                    label="Of logo URL"
+                    value={newTeamForm.logo ?? ''}
+                    placeholder="https://..."
+                    onChange={(value) => setNewTeamForm({ ...newTeamForm, logo: value })}
+                  />
+                </label>
                 {newTeamForm.logo && (
                   <div className="mt-2 flex items-center gap-3 rounded-xl border border-white/10 bg-black/30 p-3">
                     <Image
@@ -1007,6 +1105,13 @@ export default function AdminPage() {
                       }}
                     />
                     <span className="text-xs text-white/60">Logo preview</span>
+                    <button
+                      type="button"
+                      onClick={() => setNewTeamForm({ ...newTeamForm, logo: '' })}
+                      className="ml-auto text-xs text-red-400 hover:text-red-300"
+                    >
+                      Verwijder
+                    </button>
                   </div>
                 )}
               </div>
@@ -1016,12 +1121,67 @@ export default function AdminPage() {
                 placeholder="https://twitch.tv/..."
                 onChange={(value) => setNewTeamForm({ ...newTeamForm, twitchLink: value })}
               />
-              <Field
-                label="Branding Logo URL"
-                value={newTeamForm.brandingLogo ?? ''}
-                placeholder="https://..."
-                onChange={(value) => setNewTeamForm({ ...newTeamForm, brandingLogo: value })}
-              />
+              <div>
+                <label className="space-y-2 text-sm">
+                  <span className="text-xs uppercase tracking-[0.35em] text-white/50">
+                    Branding Logo
+                  </span>
+                  <div className="flex gap-2">
+                    <input
+                      type="file"
+                      ref={brandingLogoFileInputRef}
+                      accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/svg+xml"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          handleFileUpload(file, 'brandingLogo', false);
+                        }
+                      }}
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => brandingLogoFileInputRef.current?.click()}
+                      disabled={uploadingBrandingLogo || !isStorageAvailable()}
+                      className="rounded-xl border border-blue-400/50 bg-blue-500/20 px-4 py-2 text-xs font-semibold text-blue-300 transition hover:bg-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {uploadingBrandingLogo ? '⏳ Uploaden...' : '📤 Upload'}
+                    </button>
+                    <div className="flex-1 text-xs text-white/50 flex items-center">
+                      {!isStorageAvailable() && <span className="text-yellow-400">(URL alleen)</span>}
+                    </div>
+                  </div>
+                  <Field
+                    label="Of branding logo URL"
+                    value={newTeamForm.brandingLogo ?? ''}
+                    placeholder="https://..."
+                    onChange={(value) => setNewTeamForm({ ...newTeamForm, brandingLogo: value })}
+                  />
+                </label>
+                {newTeamForm.brandingLogo && (
+                  <div className="mt-2 flex items-center gap-3 rounded-xl border border-white/10 bg-black/30 p-3">
+                    <Image
+                      src={newTeamForm.brandingLogo}
+                      alt="Branding logo preview"
+                      width={48}
+                      height={48}
+                      unoptimized
+                      className="h-12 w-12 rounded-lg object-contain"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                    <span className="text-xs text-white/60">Branding logo preview</span>
+                    <button
+                      type="button"
+                      onClick={() => setNewTeamForm({ ...newTeamForm, brandingLogo: '' })}
+                      className="ml-auto text-xs text-red-400 hover:text-red-300"
+                    >
+                      Verwijder
+                    </button>
+                  </div>
+                )}
+              </div>
               <Field
                 label="Teammotto"
                 value={newTeamForm.motto ?? ''}
@@ -1126,12 +1286,42 @@ export default function AdminPage() {
                   onChange={(value) => handleTeamFieldChange('countryCode', value)}
                 />
                 <div>
-                  <Field
-                    label="Logo URL"
-                    value={editingTeamDraft.logo ?? ''}
-                    placeholder="https://..."
-                    onChange={(value) => handleTeamFieldChange('logo', value)}
-                  />
+                  <label className="space-y-2 text-sm">
+                    <span className="text-xs uppercase tracking-[0.35em] text-white/50">
+                      Logo
+                    </span>
+                    <div className="flex gap-2">
+                      <input
+                        type="file"
+                        ref={editLogoFileInputRef}
+                        accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/svg+xml"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            handleFileUpload(file, 'logo', true);
+                          }
+                        }}
+                        className="hidden"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => editLogoFileInputRef.current?.click()}
+                        disabled={uploadingEditLogo || !isStorageAvailable()}
+                        className="rounded-xl border border-blue-400/50 bg-blue-500/20 px-4 py-2 text-xs font-semibold text-blue-300 transition hover:bg-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {uploadingEditLogo ? '⏳ Uploaden...' : '📤 Upload'}
+                      </button>
+                      <div className="flex-1 text-xs text-white/50 flex items-center">
+                        {!isStorageAvailable() && <span className="text-yellow-400">(URL alleen)</span>}
+                      </div>
+                    </div>
+                    <Field
+                      label="Of logo URL"
+                      value={editingTeamDraft.logo ?? ''}
+                      placeholder="https://..."
+                      onChange={(value) => handleTeamFieldChange('logo', value)}
+                    />
+                  </label>
                   {editingTeamDraft.logo && (
                     <div className="mt-2 flex items-center gap-3 rounded-xl border border-white/10 bg-black/30 p-3">
                       <Image
@@ -1146,6 +1336,13 @@ export default function AdminPage() {
                         }}
                       />
                       <span className="text-xs text-white/60">Logo preview</span>
+                      <button
+                        type="button"
+                        onClick={() => handleTeamFieldChange('logo', '')}
+                        className="ml-auto text-xs text-red-400 hover:text-red-300"
+                      >
+                        Verwijder
+                      </button>
                     </div>
                   )}
                 </div>
@@ -1160,12 +1357,67 @@ export default function AdminPage() {
                   placeholder="https://twitch.tv/..."
                   onChange={(value) => handleTeamFieldChange('twitchLink', value)}
                 />
-                <Field
-                  label="Branding Logo URL"
-                  value={editingTeamDraft.brandingLogo ?? ''}
-                  placeholder="https://..."
-                  onChange={(value) => handleTeamFieldChange('brandingLogo', value)}
-                />
+                <div>
+                  <label className="space-y-2 text-sm">
+                    <span className="text-xs uppercase tracking-[0.35em] text-white/50">
+                      Branding Logo
+                    </span>
+                    <div className="flex gap-2">
+                      <input
+                        type="file"
+                        ref={editBrandingLogoFileInputRef}
+                        accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/svg+xml"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            handleFileUpload(file, 'brandingLogo', true);
+                          }
+                        }}
+                        className="hidden"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => editBrandingLogoFileInputRef.current?.click()}
+                        disabled={uploadingEditBrandingLogo || !isStorageAvailable()}
+                        className="rounded-xl border border-blue-400/50 bg-blue-500/20 px-4 py-2 text-xs font-semibold text-blue-300 transition hover:bg-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {uploadingEditBrandingLogo ? '⏳ Uploaden...' : '📤 Upload'}
+                      </button>
+                      <div className="flex-1 text-xs text-white/50 flex items-center">
+                        {!isStorageAvailable() && <span className="text-yellow-400">(URL alleen)</span>}
+                      </div>
+                    </div>
+                    <Field
+                      label="Of branding logo URL"
+                      value={editingTeamDraft.brandingLogo ?? ''}
+                      placeholder="https://..."
+                      onChange={(value) => handleTeamFieldChange('brandingLogo', value)}
+                    />
+                  </label>
+                  {editingTeamDraft.brandingLogo && (
+                    <div className="mt-2 flex items-center gap-3 rounded-xl border border-white/10 bg-black/30 p-3">
+                      <Image
+                        src={editingTeamDraft.brandingLogo}
+                        alt="Branding logo preview"
+                        width={48}
+                        height={48}
+                        unoptimized
+                        className="h-12 w-12 rounded-lg object-contain"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                      <span className="text-xs text-white/60">Branding logo preview</span>
+                      <button
+                        type="button"
+                        onClick={() => handleTeamFieldChange('brandingLogo', '')}
+                        className="ml-auto text-xs text-red-400 hover:text-red-300"
+                      >
+                        Verwijder
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
               <Field
                 label="Teammotto"
