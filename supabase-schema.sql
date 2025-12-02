@@ -218,29 +218,4 @@ CREATE POLICY "Allow public delete access" ON match_details FOR DELETE USING (tr
 CREATE POLICY "Allow public delete access" ON match_media_links FOR DELETE USING (true);
 CREATE POLICY "Allow public delete access" ON match_sponsors FOR DELETE USING (true);
 
--- ============================================
--- STORAGE BUCKET voor team logo's
--- ============================================
--- Maak een storage bucket aan voor team assets (logo's, branding logo's, etc.)
-INSERT INTO storage.buckets (id, name, public)
-VALUES ('team-assets', 'team-assets', true)
-ON CONFLICT (id) DO NOTHING;
-
--- Storage policies: publiek leesbaar, schrijven via anon key
-CREATE POLICY "Allow public read access"
-ON storage.objects FOR SELECT
-USING (bucket_id = 'team-assets');
-
-CREATE POLICY "Allow public upload access"
-ON storage.objects FOR INSERT
-WITH CHECK (bucket_id = 'team-assets');
-
-CREATE POLICY "Allow public update access"
-ON storage.objects FOR UPDATE
-USING (bucket_id = 'team-assets');
-
-CREATE POLICY "Allow public delete access"
-ON storage.objects FOR DELETE
-USING (bucket_id = 'team-assets');
-
 

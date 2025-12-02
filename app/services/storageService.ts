@@ -1,117 +1,77 @@
 'use client';
 
 /**
- * Service voor file uploads naar Supabase Storage
+ * Service voor lokale file opslag (data URLs)
+ * Bestanden worden opgeslagen als base64 data URLs in de Zustand store
  */
 
-import { createClient } from '@/lib/supabase/client';
-
-function getSupabase() {
-  try {
-    return createClient();
-  } catch (error) {
-    // Supabase niet geconfigureerd - return null
-    return null;
-  }
+/**
+ * Converteer een File naar een data URL (base64)
+ * @param file Het bestand om te converteren
+ * @returns Promise met de data URL string
+ */
+function fileToDataURL(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        resolve(reader.result);
+      } else {
+        reject(new Error('Kon bestand niet lezen'));
+      }
+    };
+    reader.onerror = () => reject(new Error('Fout bij lezen van bestand'));
+    reader.readAsDataURL(file);
+  });
 }
 
 /**
- * Upload een bestand naar Supabase Storage
+ * Upload een bestand lokaal (converteer naar data URL)
  * @param file Het bestand om te uploaden
- * @param folder De folder in de storage bucket (bijv. 'team-logos')
- * @param fileName Optionele custom filename, anders wordt de originele naam gebruikt
- * @returns De publieke URL van het geüploade bestand, of null als upload faalt
+ * @param folder Niet gebruikt (behouden voor compatibiliteit)
+ * @param fileName Niet gebruikt (behouden voor compatibiliteit)
+ * @returns De data URL van het bestand, of null als conversie faalt
  */
 export async function uploadFile(
   file: File,
   folder: string = 'team-logos',
   fileName?: string
 ): Promise<string | null> {
-  const supabase = getSupabase();
-  if (!supabase) {
-    console.warn('Supabase niet geconfigureerd - file upload niet mogelijk');
-    return null;
-  }
-
   try {
-    // Genereer een unieke filename als er geen is gegeven
-    const fileExt = file.name.split('.').pop();
-    const timestamp = Date.now();
-    const randomString = Math.random().toString(36).substring(2, 15);
-    const finalFileName = fileName || `${timestamp}-${randomString}.${fileExt}`;
-    const filePath = `${folder}/${finalFileName}`;
+    console.log('📤 Converting file to data URL:', { fileName: file.name, fileSize: file.size, fileType: file.type });
 
-    // Upload het bestand
-    const { data, error } = await supabase.storage
-      .from('team-assets')
-      .upload(filePath, file, {
-        cacheControl: '3600',
-        upsert: false, // Voorkom overwrites
-      });
+    // Converteer bestand naar data URL
+    const dataURL = await fileToDataURL(file);
 
-    if (error) {
-      console.error('Error uploading file:', error);
+    console.log('✅ File converted successfully, data URL length:', dataURL.length);
+    return dataURL;
+  } catch (error) {
+    console.error('❌ Error converting file:', error);
+    if (error instanceof Error) {
       throw error;
     }
-
-    // Haal de publieke URL op
-    const { data: urlData } = supabase.storage
-      .from('team-assets')
-      .getPublicUrl(filePath);
-
-    if (!urlData?.publicUrl) {
-      throw new Error('Kon publieke URL niet ophalen');
-    }
-
-    return urlData.publicUrl;
-  } catch (error) {
-    console.error('Error in uploadFile:', error);
-    return null;
+    throw new Error('Bestand conversie mislukt: ' + String(error));
   }
 }
 
 /**
- * Verwijder een bestand uit Supabase Storage
- * @param filePath Het pad naar het bestand in storage
- * @returns true als verwijderen succesvol was, false anders
+ * Verwijder een bestand (no-op voor lokale opslag)
+ * @param filePath Het pad naar het bestand (niet gebruikt)
+ * @returns true (altijd succesvol, want er is niets te verwijderen)
  */
 export async function deleteFile(filePath: string): Promise<boolean> {
-  const supabase = getSupabase();
-  if (!supabase) {
-    return false;
-  }
-
-  try {
-    // Extract folder en filename uit de volledige URL
-    const url = new URL(filePath);
-    const pathParts = url.pathname.split('/');
-    const storagePath = pathParts.slice(pathParts.indexOf('team-assets') + 1).join('/');
-
-    const { error } = await supabase.storage
-      .from('team-assets')
-      .remove([storagePath]);
-
-    if (error) {
-      console.error('Error deleting file:', error);
-      return false;
-    }
-
-    return true;
-  } catch (error) {
-    console.error('Error in deleteFile:', error);
-    return false;
-  }
+  // Voor lokale opslag hoeven we niets te verwijderen
+  // De data URL wordt automatisch verwijderd wanneer het team wordt verwijderd
+  return true;
 }
 
 /**
- * Check of Supabase Storage is geconfigureerd
+ * Check of lokale storage beschikbaar is (altijd true)
  */
 export function isStorageAvailable(): boolean {
-  try {
-    const supabase = getSupabase();
-    return supabase !== null;
-  } catch {
-    return false;
-  }
+  // Lokale opslag is altijd beschikbaar
+  return true;
 }
+
+
 

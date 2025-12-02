@@ -46,6 +46,7 @@ export default function AdminPage() {
   const [uploadingBrandingLogo, setUploadingBrandingLogo] = useState(false);
   const [uploadingEditLogo, setUploadingEditLogo] = useState(false);
   const [uploadingEditBrandingLogo, setUploadingEditBrandingLogo] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const logoFileInputRef = useRef<HTMLInputElement>(null);
   const brandingLogoFileInputRef = useRef<HTMLInputElement>(null);
   const editLogoFileInputRef = useRef<HTMLInputElement>(null);
@@ -153,11 +154,6 @@ export default function AdminPage() {
     field: 'logo' | 'brandingLogo',
     isEditing: boolean = false
   ) => {
-    if (!isStorageAvailable()) {
-      alert('Supabase Storage is niet geconfigureerd. Upload alleen een URL of configureer Supabase eerst.');
-      return;
-    }
-
     // Validate file type
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
     if (!validTypes.includes(file.type)) {
@@ -186,19 +182,27 @@ export default function AdminPage() {
     }
 
     try {
-      const url = await uploadFile(file, 'team-logos');
-      if (url) {
+      // Converteer bestand naar data URL (lokaal opgeslagen)
+      const dataURL = await uploadFile(file, 'team-logos');
+      if (dataURL) {
+        console.log('✅ File converted to data URL successfully');
         if (isEditing) {
-          handleTeamFieldChange(field, url);
+          handleTeamFieldChange(field, dataURL);
         } else {
-          setNewTeamForm({ ...newTeamForm, [field]: url });
+          setNewTeamForm({ ...newTeamForm, [field]: dataURL });
         }
+        // Toon succesmelding
+        setUploadMessage({ type: 'success', text: 'Logo succesvol opgeslagen' });
+        setTimeout(() => setUploadMessage(null), 3000);
       } else {
-        alert('Upload mislukt. Probeer het opnieuw of gebruik een URL.');
+        setUploadMessage({ type: 'error', text: 'Opslag mislukt. Geen data URL ontvangen.' });
+        setTimeout(() => setUploadMessage(null), 5000);
       }
     } catch (error) {
-      console.error('Upload error:', error);
-      alert('Upload mislukt. Probeer het opnieuw of gebruik een URL.');
+      console.error('❌ Upload error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Onbekende fout';
+      setUploadMessage({ type: 'error', text: `Opslag mislukt: ${errorMessage}` });
+      setTimeout(() => setUploadMessage(null), 5000);
     } finally {
       setUploadingLogo(false);
       setUploadingBrandingLogo(false);
@@ -471,6 +475,52 @@ export default function AdminPage() {
         </div>
 
       </header>
+
+      {/* Upload Message Toast */}
+      {uploadMessage && (
+        <div className="fixed top-6 right-6 z-50 animate-in slide-in-from-top-5">
+          <div
+            className={`rounded-2xl border px-4 py-3 text-sm shadow-xl shadow-black/40 backdrop-blur ${
+              uploadMessage.type === 'success'
+                ? 'border-emerald-400/40 bg-emerald-500/10 text-emerald-200'
+                : 'border-red-400/40 bg-red-500/10 text-red-200'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              {uploadMessage.type === 'success' ? (
+                <svg
+                  className="h-5 w-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+              ) : (
+                <svg
+                  className="h-5 w-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              )}
+              <span>{uploadMessage.text}</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       <main className="mx-auto mt-8 flex max-w-6xl flex-col gap-6 lg:flex-row">
         {/* Left column: Bracket meta + settings */}
@@ -1075,14 +1125,11 @@ export default function AdminPage() {
                     <button
                       type="button"
                       onClick={() => logoFileInputRef.current?.click()}
-                      disabled={uploadingLogo || !isStorageAvailable()}
-                      className="rounded-xl border border-blue-400/50 bg-blue-500/20 px-4 py-2 text-xs font-semibold text-blue-300 transition hover:bg-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={uploadingLogo}
+                      className="rounded-full border border-white/20 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white/70 transition hover:border-white/40 hover:bg-white/10 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {uploadingLogo ? '⏳ Uploaden...' : '📤 Upload'}
+                      {uploadingLogo ? 'Bezig...' : 'Upload logo'}
                     </button>
-                    <div className="flex-1 text-xs text-white/50 flex items-center">
-                      {!isStorageAvailable() && <span className="text-yellow-400">(URL alleen)</span>}
-                    </div>
                   </div>
                   <Field
                     label="Of logo URL"
@@ -1142,14 +1189,11 @@ export default function AdminPage() {
                     <button
                       type="button"
                       onClick={() => brandingLogoFileInputRef.current?.click()}
-                      disabled={uploadingBrandingLogo || !isStorageAvailable()}
-                      className="rounded-xl border border-blue-400/50 bg-blue-500/20 px-4 py-2 text-xs font-semibold text-blue-300 transition hover:bg-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={uploadingBrandingLogo}
+                      className="rounded-full border border-white/20 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white/70 transition hover:border-white/40 hover:bg-white/10 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {uploadingBrandingLogo ? '⏳ Uploaden...' : '📤 Upload'}
+                      {uploadingBrandingLogo ? 'Bezig...' : 'Upload branding'}
                     </button>
-                    <div className="flex-1 text-xs text-white/50 flex items-center">
-                      {!isStorageAvailable() && <span className="text-yellow-400">(URL alleen)</span>}
-                    </div>
                   </div>
                   <Field
                     label="Of branding logo URL"
@@ -1306,14 +1350,11 @@ export default function AdminPage() {
                       <button
                         type="button"
                         onClick={() => editLogoFileInputRef.current?.click()}
-                        disabled={uploadingEditLogo || !isStorageAvailable()}
-                        className="rounded-xl border border-blue-400/50 bg-blue-500/20 px-4 py-2 text-xs font-semibold text-blue-300 transition hover:bg-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={uploadingEditLogo}
+                        className="rounded-full border border-white/20 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white/70 transition hover:border-white/40 hover:bg-white/10 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {uploadingEditLogo ? '⏳ Uploaden...' : '📤 Upload'}
+                        {uploadingEditLogo ? 'Bezig...' : 'Upload logo'}
                       </button>
-                      <div className="flex-1 text-xs text-white/50 flex items-center">
-                        {!isStorageAvailable() && <span className="text-yellow-400">(URL alleen)</span>}
-                      </div>
                     </div>
                     <Field
                       label="Of logo URL"
@@ -1378,14 +1419,11 @@ export default function AdminPage() {
                       <button
                         type="button"
                         onClick={() => editBrandingLogoFileInputRef.current?.click()}
-                        disabled={uploadingEditBrandingLogo || !isStorageAvailable()}
-                        className="rounded-xl border border-blue-400/50 bg-blue-500/20 px-4 py-2 text-xs font-semibold text-blue-300 transition hover:bg-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={uploadingEditBrandingLogo}
+                        className="rounded-full border border-white/20 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white/70 transition hover:border-white/40 hover:bg-white/10 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {uploadingEditBrandingLogo ? '⏳ Uploaden...' : '📤 Upload'}
+                        {uploadingEditBrandingLogo ? 'Bezig...' : 'Upload branding'}
                       </button>
-                      <div className="flex-1 text-xs text-white/50 flex items-center">
-                        {!isStorageAvailable() && <span className="text-yellow-400">(URL alleen)</span>}
-                      </div>
                     </div>
                     <Field
                       label="Of branding logo URL"

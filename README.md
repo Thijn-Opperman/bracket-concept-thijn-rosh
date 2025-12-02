@@ -38,7 +38,7 @@ Een Next.js App Router-project voor het ontwerpen, beheren en presenteren van es
   - Toernooi-info: pas serie, titel en beschrijving aan.
   - Bracket settings: single/double elimination, primaire/secundaire/background kleuren via `ColorPickerField`.
   - **Supabase Database Sync**: maak tournaments aan, laad bestaande tournaments, of schakel tussen lokaal (localStorage) en Supabase-opslag. Alle wijzigingen worden automatisch gesynct wanneer een tournament actief is.
-  - **File upload voor logo's**: upload team logo's en branding logo's direct naar Supabase Storage (JPEG, PNG, GIF, WebP, SVG, max 5MB). Als Supabase niet is geconfigureerd, kun je nog steeds URL's gebruiken.
+  - **Lokale logo opslag**: upload team logo's en branding logo's direct vanuit de browser. Bestanden worden opgeslagen als data URLs (base64) in de Zustand store en localStorage. Ondersteunt JPEG, PNG, GIF, WebP, SVG (max 5MB). Je kunt ook gewoon een URL invoeren.
   - Teambeheer: zoeken/filteren, dubbele naamdetectie, spelersoverzicht, modals voor CRUD-acties en matchgeschiedenis per team.
   - Matchbeheer: kies bracket/ronde/match, valideer dat teams niet dubbel voorkomen, stel scores, winnaars en metadata (tijd, court, beschrijving, prizeInfo, schedule notes) in.
   - Consistente UX via custom form helpers (`Field`, `TextAreaField`, `SelectField`, ...).
@@ -117,7 +117,7 @@ app/
   services/              # Supabase service laag
     bracketService.ts    # Bracket CRUD operaties
     matchService.ts      # Match CRUD operaties
-    storageService.ts    # File upload naar Supabase Storage
+    storageService.ts    # Lokale file opslag (data URLs)
     supabaseSync.ts      # Store synchronisatie helpers
     teamService.ts       # Team CRUD operaties
     tournamentService.ts # Tournament CRUD operaties
@@ -169,10 +169,10 @@ Open `http://localhost:3000/` voor de publieke bracket en `http://localhost:3000
 
 **Supabase setup (optioneel maar aanbevolen):**
 1. Maak een `.env.local` met de Supabase-variabelen (zie [Environment & configuratie](#environment--configuratie)).
-2. Open Supabase dashboard en voer `supabase-schema.sql` uit in de SQL Editor (dit maakt ook de Storage bucket aan voor logo uploads).
-3. Ga naar Storage in het Supabase dashboard en controleer dat de `team-assets` bucket bestaat en publiek toegankelijk is.
-4. Ga naar `/admin` en klik op "Nieuw Tournament Aanmaken" om Supabase sync te activeren.
-5. Vanaf dat moment worden alle wijzigingen automatisch opgeslagen in Supabase, en kun je logo's uploaden in plaats van alleen URL's te gebruiken.
+2. Open Supabase dashboard en voer `supabase-schema.sql` uit in de SQL Editor om alle database tabellen aan te maken.
+3. Ga naar `/admin` en klik op "Nieuw Tournament Aanmaken" om Supabase sync te activeren.
+4. Vanaf dat moment worden alle wijzigingen automatisch opgeslagen in Supabase.
+5. Logo's worden altijd lokaal opgeslagen (data URLs in localStorage), ongeacht of Supabase is geconfigureerd.
 
 > Tailwind v4 loopt via PostCSS; er is geen aparte `tailwind.config.js` nodig.
 
@@ -197,13 +197,14 @@ Open `http://localhost:3000/` voor de publieke bracket en `http://localhost:3000
    - Gebruik hover/focus om detailpanelen te openen.
 3. Admin (`/admin`):
    - **Supabase setup**: maak een nieuw tournament aan of laad een bestaand tournament via ID.
-   - Maak teams aan (logo, spelers, socials) - wordt automatisch naar Supabase gesynct als tournament actief is.
+   - Maak teams aan (upload logo's of gebruik URL's, spelers, socials) - wordt automatisch naar Supabase gesynct als tournament actief is.
+   - Logo's worden lokaal opgeslagen als data URLs (base64) in localStorage.
    - Kies bracket/ronde/match, wijs teams toe, stel scores en metadata in.
    - Markeer winnaars en zie ze automatisch doorstromen (wordt gesynct naar Supabase).
    - Pas kleuren en toernooi-info aan om direct live feedback te zien (wordt gesynct naar Supabase).
 4. State wordt automatisch opgeslagen:
-   - **Lokaal**: altijd in `localStorage` als backup.
-   - **Supabase**: automatisch wanneer een tournament actief is (via `tournamentId`).
+   - **Lokaal**: altijd in `localStorage` (inclusief logo's als data URLs).
+   - **Supabase**: automatisch wanneer een tournament actief is (via `tournamentId`). Logo's worden als data URLs opgeslagen in de database.
 
 ---
 
@@ -217,9 +218,10 @@ Open `http://localhost:3000/` voor de publieke bracket en `http://localhost:3000
   - `teamService.ts`: teams en spelers
   - `matchService.ts`: matches en match details
   - `bracketService.ts`: bracket structuur
+  - `storageService.ts`: converteert bestanden naar data URLs (base64) voor lokale opslag
   - `supabaseSync.ts`: synchronisatie helpers tussen store en Supabase
 - **Automatische sync**: wanneer `tournamentId` is ingesteld, worden alle store-acties automatisch naar Supabase gesynct.
-- **Dual storage**: state wordt zowel lokaal (`localStorage`) als in Supabase opgeslagen voor robuustheid.
+- **Dual storage**: state wordt zowel lokaal (`localStorage`) als in Supabase opgeslagen voor robuustheid. Logo's worden altijd lokaal opgeslagen als data URLs.
 
 ---
 
@@ -266,6 +268,7 @@ Zodra een variabele ontbreekt, werken de Supabase-functies niet maar crasht de a
 ## Known limitations & roadmap
 
 - **Opslag**: Data wordt zowel lokaal (`localStorage`) als in Supabase opgeslagen. Supabase sync is alleen actief wanneer een `tournamentId` is ingesteld via de admin interface.
+- **Logo opslag**: Logo's worden opgeslagen als data URLs (base64) in localStorage en Supabase. Dit betekent dat ze ongeveer 33% groter zijn dan het originele bestand. Bij veel/grote logo's kan localStorage vol raken (meestal ~5-10MB limiet). Voor productie met veel teams zou je kunnen overwegen om weer naar Supabase Storage of een andere oplossing te gaan.
 - Double elimination is een vereenvoudigde losers-bracket, niet 1:1 met officiële circuits.
 - Geen auth/ACL: `/admin` is voor demo-doeleinden publiek. In productie zou je authenticatie moeten toevoegen.
 - Geen productiescreenshots of assets meegeleverd; voeg eigen branding toe voor showcases.
@@ -279,8 +282,9 @@ Zodra een variabele ontbreekt, werken de Supabase-functies niet maar crasht de a
 - [ ] `npm install` + `npm run build` draaien zonder fouten.
 - [ ] `npm run lint` is uitgevoerd (lokaal, buiten sandbox indien nodig).
 - [ ] Minimaal één teams- en bracketconfiguratie getest in `/admin`.
-- [ ] Supabase database schema is aangemaakt (als je Supabase gebruikt).
+- [ ] Supabase database schema is aangemaakt (als je Supabase gebruikt) - voer `supabase-schema.sql` uit.
 - [ ] Supabase sync is getest: maak een tournament aan en controleer of data wordt opgeslagen.
+- [ ] Logo upload is getest: upload een logo en controleer dat deze wordt opgeslagen en getoond.
 - [ ] Documentatie (dit bestand) is up-to-date en meegestuurd.
 - [ ] Optionele screenshots of demo-video toegevoegd aan `public/` of je inleverplatform.
 
