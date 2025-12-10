@@ -6,7 +6,7 @@ import { useBracketStore } from '@/app/store/bracketStore';
 import type { Team, BracketType, Match, BracketSettings } from '@/app/types/bracket';
 import { useMemo, useState, useRef } from 'react';
 import { getContrastRatio, normalizeHex } from '@/app/utils/colorUtils';
-import { uploadFile, isStorageAvailable } from '@/app/services/storageService';
+import { uploadFile } from '@/app/services/storageService';
 
 export default function AdminPage() {
   const {
@@ -324,22 +324,6 @@ export default function AdminPage() {
     }
   };
 
-  const handleMatchFieldChange = (field: 'startTime' | 'court', value: string) => {
-    if (!currentMatchId) return;
-    updateMatchDetails(currentMatchId, { [field]: value });
-  };
-
-  const handleMatchDetailChange = (
-    field: 'title' | 'subtitle' | 'description' | 'scheduleNote' | 'prizeInfo',
-    value: string
-  ) => {
-    if (!currentMatchId) return;
-    updateMatchDetails(currentMatchId, {
-      details: {
-        [field]: value,
-      },
-    });
-  };
 
   const handleScoreInputChange = (teamIndex: number) => (value: string) => {
     if (!currentMatchId) return;
@@ -1752,8 +1736,8 @@ export default function AdminPage() {
                   Toernooi Info
                 </h3>
                 <div className="space-y-2 text-sm text-white/80">
-                  <p><strong className="text-white">Serie naam:</strong> De naam van je toernooi serie (bijv. "Grand Arena Series").</p>
-                  <p><strong className="text-white">Toernooi titel:</strong> De naam van dit specifieke toernooi (bijv. "Ultimate Bracket Showdown").</p>
+                  <p><strong className="text-white">Serie naam:</strong> De naam van je toernooi serie (bijv. &quot;Grand Arena Series&quot;).</p>
+                  <p><strong className="text-white">Toernooi titel:</strong> De naam van dit specifieke toernooi (bijv. &quot;Ultimate Bracket Showdown&quot;).</p>
                   <p><strong className="text-white">Korte omschrijving:</strong> Een korte beschrijving die zichtbaar is op de publieke bracket pagina.</p>
                 </div>
               </section>
@@ -1792,7 +1776,7 @@ export default function AdminPage() {
                   </div>
                   <div>
                     <p className="font-semibold text-white mb-1">Automatische Sync:</p>
-                    <p>Wanneer een tournament ID actief is, worden alle wijzigingen (teams, matches, settings) automatisch naar Supabase gesynct. Je kunt ook handmatig syncen met de "Handmatig Syncen" knop.</p>
+                    <p>Wanneer een tournament ID actief is, worden alle wijzigingen (teams, matches, settings) automatisch naar Supabase gesynct. Je kunt ook handmatig syncen met de &quot;Handmatig Syncen&quot; knop.</p>
                   </div>
                   <div className="rounded-xl border border-blue-400/30 bg-blue-500/10 p-3 text-xs text-blue-200">
                     <strong>💡 Tip:</strong> Zonder Supabase sync worden alle data alleen lokaal opgeslagen in je browser (localStorage). Voor productie gebruik is Supabase sync aanbevolen.
@@ -1828,11 +1812,11 @@ export default function AdminPage() {
                 <div className="space-y-3 text-sm text-white/80">
                   <div>
                     <p className="font-semibold text-white mb-1">Team Toevoegen:</p>
-                    <p>Klik op "Team toevoegen" en vul de team informatie in. Teamnaam is verplicht en moet uniek zijn.</p>
+                    <p>Klik op &quot;Team toevoegen&quot; en vul de team informatie in. Teamnaam is verplicht en moet uniek zijn.</p>
                   </div>
                   <div>
                     <p className="font-semibold text-white mb-1">Logo Upload:</p>
-                    <p>Upload een logo bestand (JPEG, PNG, GIF, WebP, SVG, max 5MB) of voer een logo URL in. Logo's worden lokaal opgeslagen als data URL.</p>
+                    <p>Upload een logo bestand (JPEG, PNG, GIF, WebP, SVG, max 5MB) of voer een logo URL in. Logo&apos;s worden lokaal opgeslagen als data URL.</p>
                   </div>
                   <div>
                     <p className="font-semibold text-white mb-1">Team Bewerken:</p>
@@ -1874,7 +1858,7 @@ export default function AdminPage() {
                   </div>
                   <div>
                     <p className="font-semibold text-white mb-1">Stap 4: Markeer Winnaar</p>
-                    <p>Klik op "Markeer winnaar" bij het winnende team. De winnaar wordt automatisch doorgevoerd naar de volgende ronde volgens de bracket structuur.</p>
+                    <p>Klik op &quot;Markeer winnaar&quot; bij het winnende team. De winnaar wordt automatisch doorgevoerd naar de volgende ronde volgens de bracket structuur.</p>
                   </div>
                   <div>
                     <p className="font-semibold text-white mb-1">Match Metadata:</p>
@@ -1905,15 +1889,15 @@ export default function AdminPage() {
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-emerald-400 mt-0.5">•</span>
-                    <span>Gebruik de "Terug naar bracket" knop om de publieke view te bekijken.</span>
+                    <span>Gebruik de &quot;Terug naar bracket&quot; knop om de publieke view te bekijken.</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-emerald-400 mt-0.5">•</span>
-                    <span>Logo's worden lokaal opgeslagen. Bij veel/grote logo's kan localStorage vol raken (~5-10MB limiet).</span>
+                    <span>Logo&apos;s worden lokaal opgeslagen. Bij veel/grote logo&apos;s kan localStorage vol raken (~5-10MB limiet).</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-emerald-400 mt-0.5">•</span>
-                    <span>Je kunt altijd handmatig syncen naar Supabase met de "Handmatig Syncen" knop.</span>
+                    <span>Je kunt altijd handmatig syncen naar Supabase met de &quot;Handmatig Syncen&quot; knop.</span>
                   </li>
                 </ul>
               </section>

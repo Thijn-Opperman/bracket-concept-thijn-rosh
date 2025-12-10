@@ -89,7 +89,7 @@ Een Next.js App Router-project voor het ontwerpen, beheren en presenteren van es
 
 ## Tech stack
 
-- Next.js 16 (App Router) + React 19
+- Next.js 15 (App Router) + React 19
 - TypeScript 5 (strict)
 - Tailwind CSS 4 via `@tailwindcss/postcss`
 - Zustand 5 (`persist` + `useSyncExternalStore`)
@@ -149,7 +149,7 @@ package.json
 
 ## Benodigdheden
 
-- Node.js 20 LTS (of hoger compatibel met Next.js 16)
+- Node.js 20 LTS (of hoger compatibel met Next.js 15)
 - npm 10+
 - Een Supabase-project voor persistente database opslag (aanbevolen, maar optioneel - app werkt ook lokaal)
 - Moderne browser met `localStorage` support (voor lokale state backup)
@@ -260,7 +260,7 @@ Zodra een variabele ontbreekt, werken de Supabase-functies niet maar crasht de a
 
 1. Zorg dat `.env`-variabelen ook in je hostingplatform staan.
 2. Draai `npm run build` lokaal om te valideren dat alles compileert.
-3. Deploy naar Vercel (aanbevolen) of elke Node-platform die Next.js 16 ondersteunt.
+3. Deploy naar Vercel (aanbevolen) of elke Node-platform die Next.js 15 ondersteunt.
 4. Start productie met `npm run start`. Zowel `/` als `/admin` worden statisch geprerend en hydrateren daarna.
 
 ---
