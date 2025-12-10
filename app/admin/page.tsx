@@ -47,6 +47,7 @@ export default function AdminPage() {
   const [uploadingEditLogo, setUploadingEditLogo] = useState(false);
   const [uploadingEditBrandingLogo, setUploadingEditBrandingLogo] = useState(false);
   const [uploadMessage, setUploadMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
   const logoFileInputRef = useRef<HTMLInputElement>(null);
   const brandingLogoFileInputRef = useRef<HTMLInputElement>(null);
   const editLogoFileInputRef = useRef<HTMLInputElement>(null);
@@ -444,12 +445,34 @@ export default function AdminPage() {
               Voeg teams toe, beheer spelersgegevens en vul wedstrijdinformatie aan.
             </p>
           </div>
-          <Link
-            href="/"
-            className="rounded-full border border-white/20 px-5 py-2 text-sm font-semibold uppercase tracking-widest transition hover:border-white/50 hover:bg-white/10"
-          >
-            Terug naar bracket
-          </Link>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setIsHelpModalOpen(true)}
+              className="rounded-full border border-white/20 p-3 text-white/70 transition hover:border-white/50 hover:bg-white/10 hover:text-white"
+              title="Help & Uitleg"
+              aria-label="Open help modal"
+            >
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+            </button>
+            <Link
+              href="/"
+              className="rounded-full border border-white/20 px-5 py-2 text-sm font-semibold uppercase tracking-widest transition hover:border-white/50 hover:bg-white/10"
+            >
+              Terug naar bracket
+            </Link>
+          </div>
         </div>
         <div className="grid gap-4 text-sm text-white/70 sm:grid-cols-3">
           <div>
@@ -1652,6 +1675,261 @@ export default function AdminPage() {
                   Annuleren
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Help Modal */}
+      {isHelpModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+          onClick={() => setIsHelpModalOpen(false)}
+        >
+          <div
+            className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-3xl border border-white/10 bg-gradient-to-br from-[#030712] via-[#0f172a] to-[#020617] p-8 shadow-2xl shadow-black/40"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <button
+              onClick={() => setIsHelpModalOpen(false)}
+              className="absolute right-6 top-6 rounded-full border border-white/20 p-2 text-white/70 transition hover:border-white/40 hover:bg-white/10 hover:text-white"
+              aria-label="Sluit help modal"
+            >
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+
+            {/* Header */}
+            <div className="mb-8 pr-10">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="rounded-full border border-white/20 p-2 bg-white/5">
+                  <svg
+                    className="h-6 w-6 text-white"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-[0.35em] text-white/60">
+                    Help & Uitleg
+                  </p>
+                  <h2 className="text-3xl font-semibold text-white">Admin Console Gids</h2>
+                </div>
+              </div>
+              <p className="text-sm text-white/70 mt-2">
+                Alles wat je moet weten over het beheren van je bracket toernooi.
+              </p>
+            </div>
+
+            {/* Content */}
+            <div className="space-y-6">
+              {/* Toernooi Info */}
+              <section className="rounded-2xl border border-white/10 bg-white/5 p-6">
+                <h3 className="text-xl font-semibold text-white mb-3 flex items-center gap-2">
+                  <svg className="h-5 w-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Toernooi Info
+                </h3>
+                <div className="space-y-2 text-sm text-white/80">
+                  <p><strong className="text-white">Serie naam:</strong> De naam van je toernooi serie (bijv. "Grand Arena Series").</p>
+                  <p><strong className="text-white">Toernooi titel:</strong> De naam van dit specifieke toernooi (bijv. "Ultimate Bracket Showdown").</p>
+                  <p><strong className="text-white">Korte omschrijving:</strong> Een korte beschrijving die zichtbaar is op de publieke bracket pagina.</p>
+                </div>
+              </section>
+
+              {/* Bracket Type */}
+              <section className="rounded-2xl border border-white/10 bg-white/5 p-6">
+                <h3 className="text-xl font-semibold text-white mb-3 flex items-center gap-2">
+                  <svg className="h-5 w-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A2 2 0 013 15.382V5.618a2 2 0 011.553-1.954l5-1.111a2 2 0 011.106 0l5 1.111A2 2 0 0121 5.618v9.764a2 2 0 01-1.553 1.954L9 20z" />
+                  </svg>
+                  Bracket Type
+                </h3>
+                <div className="space-y-2 text-sm text-white/80">
+                  <p><strong className="text-white">Single Elimination:</strong> Winnaar gaat door, verliezer is uit. Het standaard bracket type.</p>
+                  <p><strong className="text-white">Double Elimination:</strong> Tweede kansen voor verliezers. Teams die verliezen gaan naar een losers bracket.</p>
+                  <p className="text-xs text-white/60 mt-2">⚠️ Let op: Bij wijziging van bracket type wordt de bracket opnieuw gegenereerd.</p>
+                </div>
+              </section>
+
+              {/* Supabase Sync */}
+              <section className="rounded-2xl border border-white/10 bg-white/5 p-6">
+                <h3 className="text-xl font-semibold text-white mb-3 flex items-center gap-2">
+                  <svg className="h-5 w-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+                  </svg>
+                  Supabase Database Sync
+                </h3>
+                <div className="space-y-3 text-sm text-white/80">
+                  <div>
+                    <p className="font-semibold text-white mb-1">Nieuw Tournament Aanmaken:</p>
+                    <p>Maakt een nieuw tournament aan in Supabase en genereert een unieke tournament ID. Vanaf dat moment worden alle wijzigingen automatisch opgeslagen in Supabase.</p>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-white mb-1">Bestaand Tournament Laden:</p>
+                    <p>Laad een bestaand tournament uit Supabase door het tournament ID in te voeren. Dit vervangt alle huidige lokale data.</p>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-white mb-1">Automatische Sync:</p>
+                    <p>Wanneer een tournament ID actief is, worden alle wijzigingen (teams, matches, settings) automatisch naar Supabase gesynct. Je kunt ook handmatig syncen met de "Handmatig Syncen" knop.</p>
+                  </div>
+                  <div className="rounded-xl border border-blue-400/30 bg-blue-500/10 p-3 text-xs text-blue-200">
+                    <strong>💡 Tip:</strong> Zonder Supabase sync worden alle data alleen lokaal opgeslagen in je browser (localStorage). Voor productie gebruik is Supabase sync aanbevolen.
+                  </div>
+                </div>
+              </section>
+
+              {/* Bracket Kleuren */}
+              <section className="rounded-2xl border border-white/10 bg-white/5 p-6">
+                <h3 className="text-xl font-semibold text-white mb-3 flex items-center gap-2">
+                  <svg className="h-5 w-5 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                  </svg>
+                  Bracket Kleuren
+                </h3>
+                <div className="space-y-2 text-sm text-white/80">
+                  <p><strong className="text-white">Primaire kleur:</strong> Gebruikt voor accenten, titels en progressie balken.</p>
+                  <p><strong className="text-white">Secundaire kleur:</strong> Gebruikt voor ondersteunende accenten en badges.</p>
+                  <p><strong className="text-white">Achtergrondkleur:</strong> Basis achtergrond voor de bracket.</p>
+                  <p className="text-xs text-white/60 mt-2">De kleuren worden live bijgewerkt. Je ziet direct het resultaat op de publieke bracket pagina.</p>
+                  <p className="text-xs text-white/60">Contrast waarschuwingen helpen je om leesbare kleuren te kiezen (WCAG richtlijnen).</p>
+                </div>
+              </section>
+
+              {/* Teambeheer */}
+              <section className="rounded-2xl border border-white/10 bg-white/5 p-6">
+                <h3 className="text-xl font-semibold text-white mb-3 flex items-center gap-2">
+                  <svg className="h-5 w-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                  Teambeheer
+                </h3>
+                <div className="space-y-3 text-sm text-white/80">
+                  <div>
+                    <p className="font-semibold text-white mb-1">Team Toevoegen:</p>
+                    <p>Klik op "Team toevoegen" en vul de team informatie in. Teamnaam is verplicht en moet uniek zijn.</p>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-white mb-1">Logo Upload:</p>
+                    <p>Upload een logo bestand (JPEG, PNG, GIF, WebP, SVG, max 5MB) of voer een logo URL in. Logo's worden lokaal opgeslagen als data URL.</p>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-white mb-1">Team Bewerken:</p>
+                    <p>Klik op het instellingen icoon bij een team om het te bewerken. Hier kun je:</p>
+                    <ul className="list-disc list-inside ml-4 mt-1 space-y-1 text-xs text-white/70">
+                      <li>Team informatie aanpassen (naam, landcode, coach, motto, Twitch link)</li>
+                      <li>Spelers toevoegen/verwijderen met naam, rol, rugnummer en landcode</li>
+                      <li>Matchgeschiedenis bekijken en match details bewerken</li>
+                      <li>Team verwijderen (kan niet ongedaan worden gemaakt)</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-white mb-1">Team Zoeken:</p>
+                    <p>Bij meer dan 3 teams verschijnt een zoekbalk om teams te filteren op naam of landcode.</p>
+                  </div>
+                </div>
+              </section>
+
+              {/* Matchbeheer */}
+              <section className="rounded-2xl border border-white/10 bg-white/5 p-6">
+                <h3 className="text-xl font-semibold text-white mb-3 flex items-center gap-2">
+                  <svg className="h-5 w-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                  </svg>
+                  Matchbeheer
+                </h3>
+                <div className="space-y-3 text-sm text-white/80">
+                  <div>
+                    <p className="font-semibold text-white mb-1">Stap 1: Selecteer Match</p>
+                    <p>Kies eerst een bracket, dan een ronde, en tenslotte een specifieke match uit de dropdowns.</p>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-white mb-1">Stap 2: Ken Teams Toe</p>
+                    <p>Selecteer voor elk match slot (Team 1 en Team 2) een team uit de dropdown. Een team kan niet tegen zichzelf spelen - je krijgt een foutmelding als je dit probeert.</p>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-white mb-1">Stap 3: Vul Scores In</p>
+                    <p>Voer de scores in voor beide teams. Scores zijn direct zichtbaar in de publieke bracket.</p>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-white mb-1">Stap 4: Markeer Winnaar</p>
+                    <p>Klik op "Markeer winnaar" bij het winnende team. De winnaar wordt automatisch doorgevoerd naar de volgende ronde volgens de bracket structuur.</p>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-white mb-1">Match Metadata:</p>
+                    <p>In het team bewerk modal kun je per match ook starttijd, locatie, titel, subtitel, beschrijving, schema notitie en prijzengeld instellen.</p>
+                  </div>
+                  <div className="rounded-xl border border-amber-400/30 bg-amber-500/10 p-3 text-xs text-amber-200">
+                    <strong>⚠️ Belangrijk:</strong> Zorg dat beide teams zijn ingevuld voordat je een winnaar kiest. De live bracket wordt direct bijgewerkt na elke wijziging.
+                  </div>
+                </div>
+              </section>
+
+              {/* Tips */}
+              <section className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-6">
+                <h3 className="text-xl font-semibold text-emerald-200 mb-3 flex items-center gap-2">
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                  </svg>
+                  Handige Tips
+                </h3>
+                <ul className="space-y-2 text-sm text-emerald-100">
+                  <li className="flex items-start gap-2">
+                    <span className="text-emerald-400 mt-0.5">•</span>
+                    <span>De bracket wordt automatisch gegenereerd wanneer je teams toevoegt of het bracket type wijzigt.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-emerald-400 mt-0.5">•</span>
+                    <span>Alle wijzigingen worden automatisch opgeslagen (lokaal en in Supabase als actief).</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-emerald-400 mt-0.5">•</span>
+                    <span>Gebruik de "Terug naar bracket" knop om de publieke view te bekijken.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-emerald-400 mt-0.5">•</span>
+                    <span>Logo's worden lokaal opgeslagen. Bij veel/grote logo's kan localStorage vol raken (~5-10MB limiet).</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-emerald-400 mt-0.5">•</span>
+                    <span>Je kunt altijd handmatig syncen naar Supabase met de "Handmatig Syncen" knop.</span>
+                  </li>
+                </ul>
+              </section>
+            </div>
+
+            {/* Footer */}
+            <div className="mt-8 pt-6 border-t border-white/10 flex items-center justify-between">
+              <p className="text-xs text-white/50">
+                Voor meer informatie, bekijk de documentatie in het project.
+              </p>
+              <button
+                onClick={() => setIsHelpModalOpen(false)}
+                className="rounded-full border border-white/20 px-6 py-2 text-sm font-semibold uppercase tracking-widest text-white transition hover:border-white/40 hover:bg-white/10"
+              >
+                Sluiten
+              </button>
             </div>
           </div>
         </div>
