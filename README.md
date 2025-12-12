@@ -1,162 +1,130 @@
 # Bracket Concept
 
-Een Next.js App Router-project voor het ontwerpen, beheren en presenteren van esports-toernooibrackets. De publieke ervaring levert een cinematografische bracketweergave met animaties, meerdere modes en detailpanelen; `/admin` bevat de complete beheerconsole voor teams, matches, styling en metadata.
+A Next.js bracket management system for esports tournaments. The public view shows a clean bracket with live updates, animations, and match details. The admin panel lets you manage teams, matches, scores, and tournament settings.
 
----
+> **Note:** This bracket is part of the [RoshProject](https://github.com/Jasper-van-Tilborg/roshproject) - a tournament website builder. Check out the [live demo](https://roshproject.vercel.app) to see the full editor.
 
-## Inhoudsopgave
+## Table of Contents
 
-1. [Feature highlights](#feature-highlights)
-2. [Tech stack](#tech-stack)
-3. [Projectstructuur](#projectstructuur)
-4. [Benodigdheden](#benodigdheden)
-5. [Quick start](#quick-start)
-6. [Beschikbare scripts](#beschikbare-scripts)
-7. [Publieke & admin flow](#publieke--admin-flow)
-8. [Architectuur en state](#architectuur-en-state)
-9. [Environment & configuratie](#environment--configuratie)
-10. [Kwaliteitscontrole](#kwaliteitscontrole)
-11. [Deployment](#deployment)
-12. [Known limitations & roadmap](#known-limitations--roadmap)
-13. [Submission checklist](#submission-checklist)
-14. [Contributie](#contributie)
-15. [Licentie](#licentie)
+1. [Features](#features)
+2. [Tech Stack](#tech-stack)
+3. [Getting Started](#getting-started)
+4. [Project Structure](#project-structure)
+5. [Architecture](#architecture)
+6. [Database Setup](#database-setup)
+7. [Configuration](#configuration)
+8. [Usage Guide](#usage-guide)
+9. [Deployment](#deployment)
+10. [Troubleshooting](#troubleshooting)
+11. [Limitations & Future Improvements](#limitations--future-improvements)
+12. [Credits](#credits)
 
----
+## Features
 
-## Feature highlights
+### Public Bracket View (`/`)
 
-- **Realtime bracket experience**
-  - Hero-statistieken, ronde-overzichten en statusbolletjes (grijs = afgerond, rood = live, blauw = komend).
-  - View-modi: live, completed, scheduled en draws (`BracketOverview` toont de volledige tree).
-  - Framer Motion-animaties, hover states en focusmodus per ronde.
-  - `MatchCard` bevat expand/collapse, scorebadges en hints naar “volgende match”.
-  - `MatchDetailsPanel` schuift contextueel in, toont streams, sponsors, hashtags en spelers en sluit met Escape/backdrop.
+The public bracket provides a clean, animated view of the tournament:
 
-- **Volledig admin-portaal (`/admin`)**
-  - Onboarding header met tellingen (teams, brackets, rondes) en snelkoppeling terug naar de publieke bracket.
-  - Toernooi-info: pas serie, titel en beschrijving aan.
-  - Bracket settings: single/double elimination, primaire/secundaire/background kleuren via `ColorPickerField`.
-  - **Supabase Database Sync**: maak tournaments aan, laad bestaande tournaments, of schakel tussen lokaal (localStorage) en Supabase-opslag. Alle wijzigingen worden automatisch gesynct wanneer een tournament actief is.
-  - **Lokale logo opslag**: upload team logo's en branding logo's direct vanuit de browser. Bestanden worden opgeslagen als data URLs (base64) in de Zustand store en localStorage. Ondersteunt JPEG, PNG, GIF, WebP, SVG (max 5MB). Je kunt ook gewoon een URL invoeren.
-  - Teambeheer: zoeken/filteren, dubbele naamdetectie, spelersoverzicht, modals voor CRUD-acties en matchgeschiedenis per team.
-  - Matchbeheer: kies bracket/ronde/match, valideer dat teams niet dubbel voorkomen, stel scores, winnaars en metadata (tijd, court, beschrijving, prizeInfo, schedule notes) in.
-  - Consistente UX via custom form helpers (`Field`, `TextAreaField`, `SelectField`, ...).
+**Hero Section:**
+- Tournament name, series, and description
+- Statistics: number of teams, completed matches, current winner
+- Next match preview with time and location
 
-- **State management via Zustand + persist + Supabase sync**
-  - Centrale store (`app/store/bracketStore.ts`) bewaart teams, brackets, settings, geselecteerde match en view state.
-  - Persist middleware slaat state lokaal op (`localStorage`), `useSyncExternalStore` voorkomt hydration flash.
-  - **Automatische Supabase sync**: wanneer `tournamentId` is ingesteld, worden alle wijzigingen (teams, matches, settings) automatisch naar Supabase gesynct.
-  - Acties zoals `setWinner` pushen winnaars automatisch door naar volgende rondes en syncen naar Supabase:
+**Round Progress Overview:**
+- Visual progress indicators for each round
+- Status colors: gray (completed), red (live/in-progress), blue (upcoming)
+- Clickable rounds to focus on specific rounds
+- Progress bars showing completion percentage
 
-    ```ts
-    setWinner: (matchId, winnerIndex) => {
-      const { brackets } = get();
-      // ...zoek match...
-      const winner = match?.teams[winnerIndex];
-      if (!winner) return;
-      const updatedBrackets = brackets.map((bracket, bIdx) => {
-        if (bIdx !== foundBracketIndex) return bracket;
-        const updatedRounds = bracket.rounds.map((round, roundIdx) => {
-          if (roundIdx !== matchRoundIndex) return round;
-          return {
-            ...round,
-            matches: round.matches.map((m, mIdx) =>
-              mIdx === matchIndex ? { ...m, winnerIndex } : m
-            ),
-          };
-        });
-        // ...bubble winnaar naar volgende ronde...
-        return { ...bracket, rounds: updatedRounds };
-      });
-      set({ brackets: updatedBrackets });
-    },
-    ```
+**View Modes:**
+- **Live**: Shows only matches without a winner (default)
+- **Completed**: Shows finished matches
+- **Scheduled**: Shows matches with start times but no winner yet
+- **Draws**: Full bracket tree view showing all matches
 
-- **Automatische bracketgeneratie (`app/utils/bracketGenerator.ts`)**
-  - Ondersteunt single- en eenvoudige double-elimination.
-  - Vult byes aan tot een macht van twee, genereert standaard `MatchDetails` (streams, hashtags, sponsors) en distribueert starttijden/courts.
+**Match Cards:**
+- Expandable/collapsible match information
+- Team logos and names
+- Scores display
+- Winner indicators
+- Start time and location
+- Next match preview
+- Prize pool information
 
-- **Volledige Supabase-integratie**
-  - Persistente database opslag voor tournaments, teams, brackets, matches en details.
-  - Automatische synchronisatie: alle wijzigingen worden real-time gesynct naar Supabase wanneer een tournament actief is.
-  - Service-laag: `app/services/` bevat volledige CRUD-operaties voor tournaments, teams, brackets en matches.
-  - Admin-interface: maak nieuwe tournaments aan, laad bestaande tournaments, of schakel tussen lokaal en Supabase-opslag.
-  - Database schema: `supabase-schema.sql` bevat het complete schema met RLS policies.
-  - Transformers: `app/utils/supabaseTransformers.ts` converteert tussen app types en Supabase database types.
+**Match Details Panel:**
+- Slides in from the right when clicking a match
+- Shows team information (logos, names, country codes, coaches, mottos)
+- Player lists (first 5 players with "more" indicator)
+- Livestream links (Twitch, YouTube, Facebook, TikTok, Instagram, X)
+- Hashtags
+- Sponsors/partners
+- Prize information
+- Closes with ESC key or backdrop click
 
----
+**Responsive Design:**
+- Desktop: Grid layout with multiple columns
+- Mobile: Stacked layout with expand/collapse per round
+- Smooth animations with Framer Motion
 
-## Tech stack
+### Admin Panel (`/admin`)
 
-- Next.js 15 (App Router) + React 19
-- TypeScript 5 (strict)
-- Tailwind CSS 4 via `@tailwindcss/postcss`
-- Zustand 5 (`persist` + `useSyncExternalStore`)
-- Framer Motion 12
-- Supabase (`@supabase/ssr`, `@supabase/supabase-js`)
-- Utilities: `canvas-confetti`, `color-contrast-checker`, `html-to-image`, `jspdf`
+Complete management interface for tournament content:
 
----
+**Tournament Configuration:**
+- Series name, title, and description
+- Bracket type selection (single/double elimination)
+- Color customization (primary, secondary, background) with contrast validation
 
-## Projectstructuur
+**Supabase Database Sync:**
+- Create new tournaments (generates unique ID, enables auto-sync)
+- Load existing tournaments by ID
+- Manual sync button
+- Disconnect option to work locally only
+- All changes automatically sync to Supabase when a tournament is active
 
-```
-app/
-  layout.tsx             # App Router rootlayout
-  globals.css            # Tailwind v4 + custom styles
-  favicon.ico
-  page.tsx               # Publieke bracket experience
-  admin/page.tsx         # Volledige admin console + Supabase management
-  components/
-    BracketContainer.tsx
-    BracketOverview.tsx
-    MatchCard.tsx
-    MatchDetailsPanel.tsx
-    TeamSlot.tsx
-  services/              # Supabase service laag
-    bracketService.ts    # Bracket CRUD operaties
-    matchService.ts      # Match CRUD operaties
-    storageService.ts    # Lokale file opslag (data URLs)
-    supabaseSync.ts      # Store synchronisatie helpers
-    teamService.ts       # Team CRUD operaties
-    tournamentService.ts # Tournament CRUD operaties
-  store/
-    bracketStore.ts      # Zustand store + persist + Supabase sync
-  types/
-    bracket.ts           # Core type definities
-  utils/
-    bracketGenerator.ts  # Bracket generator + defaults
-    colorUtils.ts        # Kleurhelpers & contrast checks
-    supabaseTransformers.ts # Type transformers App ↔ Supabase
-lib/
-  supabase/
-    client.ts            # Browser client helper
-    server.ts            # SSR client helper
-supabase/
-  migrations/            # Database migrations (optioneel)
-supabase-schema.sql      # Volledig database schema voor Supabase
-public/
-  ...                    # Assets / placeholders voor branding
-eslint.config.mjs
-next.config.ts
-postcss.config.mjs
-tsconfig.json
-package.json
-```
+**Team Management:**
+- Add/edit/delete teams
+- Logo upload (JPEG, PNG, GIF, WebP, SVG, max 5MB) or URL input
+- Branding logo upload (separate from team logo)
+- Team information: name (required, unique), country code, coach, motto, Twitch link
+- Player management: add/remove players with name, role, jersey number, country code
+- Team search/filter (when more than 3 teams)
+- Match history per team
+- Duplicate name detection
 
----
+**Match Management:**
+- Select bracket/round/match via dropdowns
+- Assign teams to match slots (validates teams can't play against themselves)
+- Enter scores for each team
+- Mark winners (automatically propagates to next round)
+- Match metadata: start time, location, title, subtitle, description, schedule notes, prize info
 
-## Benodigdheden
+**Help Modal:**
+- Comprehensive guide explaining all features
+- Accessible via question mark button in header
+- Organized by feature sections
 
-- Node.js 20 LTS (of hoger compatibel met Next.js 15)
+## Tech Stack
+
+- **Next.js 15** - React framework with App Router
+- **React 19** - UI library
+- **TypeScript 5** - Type safety
+- **Tailwind CSS 4** - Styling via PostCSS
+- **Zustand 5** - State management with persist middleware
+- **Framer Motion 12** - Animations
+- **Supabase** - PostgreSQL database (`@supabase/ssr`, `@supabase/supabase-js`)
+- **Utilities**: `canvas-confetti`, `color-contrast-checker`, `html-to-image`, `jspdf`
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js 20 LTS or higher
 - npm 10+
-- Een Supabase-project voor persistente database opslag (aanbevolen, maar optioneel - app werkt ook lokaal)
-- Moderne browser met `localStorage` support (voor lokale state backup)
+- A Supabase project (optional, but recommended for production)
+- Modern browser with localStorage support
 
----
-
-## Quick start
+### Installation
 
 ```bash
 git clone https://github.com/thijnopperman/bracket-concept-thijn-rosh.git
@@ -165,140 +133,416 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:3000/` voor de publieke bracket en `http://localhost:3000/admin` voor beheer.
+Visit `http://localhost:3000` for the public bracket and `http://localhost:3000/admin` for the admin panel.
 
-**Supabase setup (optioneel maar aanbevolen):**
-1. Maak een `.env.local` met de Supabase-variabelen (zie [Environment & configuratie](#environment--configuratie)).
-2. Open Supabase dashboard en voer `supabase-schema.sql` uit in de SQL Editor om alle database tabellen aan te maken.
-3. Ga naar `/admin` en klik op "Nieuw Tournament Aanmaken" om Supabase sync te activeren.
-4. Vanaf dat moment worden alle wijzigingen automatisch opgeslagen in Supabase.
-5. Logo's worden altijd lokaal opgeslagen (data URLs in localStorage), ongeacht of Supabase is geconfigureerd.
+### Quick Start Without Supabase
 
-> Tailwind v4 loopt via PostCSS; er is geen aparte `tailwind.config.js` nodig.
+The app works completely standalone using localStorage. Just start the dev server and begin adding teams in the admin panel. All data will be stored locally in your browser.
 
----
+## Project Structure
 
-## Beschikbare scripts
+```
+app/
+  page.tsx                    # Public bracket view
+  admin/
+    page.tsx                  # Admin panel
+  components/
+    BracketContainer.tsx      # Main bracket container with hero, rounds, view modes
+    BracketOverview.tsx       # Full bracket tree view (Draws mode)
+    MatchCard.tsx             # Individual match card component
+    MatchDetailsPanel.tsx     # Slide-in detail panel
+    TeamSlot.tsx              # Team slot component
+  services/                   # Supabase service layer
+    bracketService.ts         # Bracket CRUD operations
+    matchService.ts           # Match CRUD operations
+    storageService.ts         # Local file storage (data URLs)
+    supabaseSync.ts           # Store synchronization helpers
+    teamService.ts            # Team CRUD operations
+    tournamentService.ts      # Tournament CRUD operations
+  store/
+    bracketStore.ts           # Zustand store with persist + Supabase sync
+  types/
+    bracket.ts                # TypeScript type definitions
+  utils/
+    bracketGenerator.ts       # Bracket generation algorithm
+    colorUtils.ts             # Color helpers & contrast checks
+    supabaseTransformers.ts   # Type transformers App ↔ Supabase
+lib/
+  supabase/
+    client.ts                 # Browser client helper
+    server.ts                 # SSR client helper
+supabase/
+  migrations/                 # Database migrations (optional)
+supabase-schema.sql           # Complete database schema
+```
 
-| Command        | Beschrijving                                                   |
-|----------------|----------------------------------------------------------------|
-| `npm run dev`  | Start Next.js dev-server (localhost:3000).                     |
-| `npm run build`| Productiebuild + TypeScript checks.                            |
-| `npm run start`| Start de gecompileerde productieversie.                        |
-| `npm run lint` | ESLint (Next core-web-vitals + TypeScript rules).             |
+## Architecture
 
----
+### State Management
 
-## Publieke & admin flow
+The app uses Zustand for state management with localStorage persistence:
 
-1. Start de dev-server (`npm run dev`).
-2. Publieke pagina (`/`):
-   - Wissel tussen live/completed/scheduled/draws.
-   - Gebruik hover/focus om detailpanelen te openen.
-3. Admin (`/admin`):
-   - **Supabase setup**: maak een nieuw tournament aan of laad een bestaand tournament via ID.
-   - Maak teams aan (upload logo's of gebruik URL's, spelers, socials) - wordt automatisch naar Supabase gesynct als tournament actief is.
-   - Logo's worden lokaal opgeslagen als data URLs (base64) in localStorage.
-   - Kies bracket/ronde/match, wijs teams toe, stel scores en metadata in.
-   - Markeer winnaars en zie ze automatisch doorstromen (wordt gesynct naar Supabase).
-   - Pas kleuren en toernooi-info aan om direct live feedback te zien (wordt gesynct naar Supabase).
-4. State wordt automatisch opgeslagen:
-   - **Lokaal**: altijd in `localStorage` (inclusief logo's als data URLs).
-   - **Supabase**: automatisch wanneer een tournament actief is (via `tournamentId`). Logo's worden als data URLs opgeslagen in de database.
+- **Central Store** (`app/store/bracketStore.ts`): Manages all application state
+  - `brackets`: Array of bracket groups
+  - `teams`: Array of teams
+  - `settings`: Tournament settings (type, colors, theme)
+  - `selectedMatchId`: Currently selected match for detail panel
+  - `viewMode`: Current view mode (live/completed/scheduled/draws)
+  - `tournamentId`: Active Supabase tournament ID (null = local only)
 
----
+- **Persistence**: All state automatically saved to localStorage
+- **Supabase Sync**: When `tournamentId` is set, all mutations automatically sync to Supabase
+- **Hydration**: Uses `useSyncExternalStore` to prevent flash of incorrect data
 
-## Architectuur en state
+### Bracket Generation
 
-- UI-componenten zijn opgesplitst per functie (`BracketContainer`, `MatchCard`, `MatchDetailsPanel`, `TeamSlot`).
-- `bracketStore` bewaakt alle business logica: bracketstructuur, matchvalidaties, kleurthema's en view state.
-- `bracketGenerator` bouwt standaard data op basis van teams en settings.
-- **Supabase service laag**: volledige CRUD-operaties via `app/services/`:
-  - `tournamentService.ts`: tournament instellingen
-  - `teamService.ts`: teams en spelers
-  - `matchService.ts`: matches en match details
-  - `bracketService.ts`: bracket structuur
-  - `storageService.ts`: converteert bestanden naar data URLs (base64) voor lokale opslag
-  - `supabaseSync.ts`: synchronisatie helpers tussen store en Supabase
-- **Automatische sync**: wanneer `tournamentId` is ingesteld, worden alle store-acties automatisch naar Supabase gesynct.
-- **Dual storage**: state wordt zowel lokaal (`localStorage`) als in Supabase opgeslagen voor robuustheid. Logo's worden altijd lokaal opgeslagen als data URLs.
+The bracket generator (`app/utils/bracketGenerator.ts`) automatically creates bracket structures:
 
----
+- **Single Elimination**: Standard bracket tree
+- **Double Elimination**: Winners bracket + simplified losers bracket
+- Automatically fills "byes" to power of 2
+- Generates default match details (streams, hashtags, sponsors)
+- Distributes start times and courts
 
-## Environment & configuratie
+### Service Layer
 
-Plaats de volgende variables in `.env.local` (en hostingplatform):
+All database operations are handled through service functions:
 
-| Variabele                       | Beschrijving                           |
-|---------------------------------|----------------------------------------|
-| `NEXT_PUBLIC_SUPABASE_URL`      | Basis-URL van je Supabase-project.     |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Public anon key voor Supabase clients. |
+- `tournamentService.ts`: Tournament CRUD
+- `teamService.ts`: Team and player management
+- `matchService.ts`: Match and match details
+- `bracketService.ts`: Bracket structure operations
+- `storageService.ts`: Converts files to data URLs for local storage
+- `supabaseSync.ts`: Synchronization helpers between store and Supabase
 
-**Database setup:**
-1. Maak een nieuw Supabase project op [supabase.com](https://supabase.com).
-2. Ga naar SQL Editor en kopieer de inhoud van `supabase-schema.sql`.
-3. Voer het SQL-script uit om alle tabellen, indexes en RLS policies aan te maken.
-4. Kopieer je project URL en anon key naar `.env.local`.
+### Data Flow
 
-> **Let op**: De app werkt ook zonder Supabase (alleen lokaal via localStorage). Supabase is optioneel maar aanbevolen voor productie gebruik.
+1. User makes change in admin panel
+2. Zustand store updates
+3. State persists to localStorage
+4. If `tournamentId` is set, change syncs to Supabase
+5. Public view updates automatically
 
-Zodra een variabele ontbreekt, werken de Supabase-functies niet maar crasht de app niet. Je kunt gewoon lokaal werken.
+### Logo Storage
 
----
+Logos are stored as data URLs (base64) in:
+- localStorage (always)
+- Supabase database (when tournament is active)
 
-## Kwaliteitscontrole
+**Limitations:**
+- Data URLs are ~33% larger than original files
+- localStorage has ~5-10MB limit
+- For production with many teams, consider Supabase Storage
 
-- ESLint 9 (`npm run lint`) draait met Next.js core-web-vitals en TypeScript rules.
-- `npm run build` voert automatisch TypeScript checks uit.
-- Gebruik `npm run lint -- --fix` om formattering/kleine issues te herstellen.
+## Database Setup
 
-> Let op: binnen sandbox-omgevingen kan `npm run lint` extra permissies vereisen omdat ESLint modules zoals `path-key` moet openen.
+### Supabase Configuration
 
----
+1. Create a new Supabase project at [supabase.com](https://supabase.com)
+
+2. Open SQL Editor and run the contents of `supabase-schema.sql`
+
+   This creates:
+   - `tournaments` table
+   - `teams` table
+   - `players` table
+   - `brackets` table
+   - `rounds` table
+   - `matches` table
+   - `match_details` table
+   - `match_media_links` table
+   - `match_sponsors` table
+   - Indexes for performance
+   - Row Level Security (RLS) policies (currently public)
+
+3. Copy your project URL and anon key
+
+4. Create `.env.local`:
+   ```
+   NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+   ```
+
+5. Restart the dev server
+
+### Database Schema Overview
+
+**Tournaments:**
+- Basic tournament info (name, description, dates, location)
+- Theme colors
+- Generated code (if integrated with RoshProject)
+- Status (draft/published)
+
+**Teams:**
+- Team information (name, country code, coach, motto)
+- Logo and branding logo (as data URLs)
+- Twitch link
+
+**Players:**
+- Player information (name, role, jersey number, country code)
+- Linked to teams
+
+**Brackets, Rounds, Matches:**
+- Hierarchical structure: Tournament → Brackets → Rounds → Matches
+- Match details include scores, winners, start times, locations
+
+**Match Details:**
+- Title, subtitle, description
+- Featured players
+- Prize information
+- Schedule notes
+
+**Match Media Links:**
+- Stream links (Twitch, YouTube, etc.)
+- Platform type and URL
+
+**Match Sponsors:**
+- Sponsor names and links
+
+## Configuration
+
+### Environment Variables
+
+Create `.env.local` in the project root:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=your-supabase-project-url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+```
+
+**Note:** The app works without these variables (localStorage only). Supabase is optional but recommended for production.
+
+### TypeScript Configuration
+
+The project uses strict TypeScript. The `tsconfig.json` is configured for Next.js 15 with:
+- Strict mode enabled
+- Path aliases (`@/*` for root directory)
+- JSX preserve (Next.js handles JSX transformation)
+
+### ESLint Configuration
+
+ESLint is configured with Next.js core-web-vitals and TypeScript rules. The config uses the flat config format compatible with ESLint 9.
+
+## Usage Guide
+
+### Creating a Tournament
+
+1. Go to `/admin`
+2. Fill in tournament info (series name, title, description)
+3. Select bracket type (single/double elimination)
+4. (Optional) Click "Create New Tournament" to enable Supabase sync
+5. Add teams using "Add Team" button
+6. Assign teams to matches
+7. Enter scores and mark winners
+
+### Managing Teams
+
+**Adding a Team:**
+1. Click "Add Team" in admin panel
+2. Enter team name (required, must be unique)
+3. Optionally add: country code, coach, motto, Twitch link
+4. Upload logo (file or URL)
+5. Upload branding logo (optional)
+6. Click "Create Team"
+
+**Editing a Team:**
+1. Click the settings icon on a team card
+2. Modify team information
+3. Add/remove players
+4. View/edit match history
+5. Click "Save"
+
+**Adding Players:**
+1. Open team edit modal
+2. Click "Add Player"
+3. Fill in player details (name, role, jersey number, country code)
+4. Players are automatically saved with the team
+
+### Managing Matches
+
+1. Select bracket, round, and match from dropdowns
+2. Assign teams to Team 1 and Team 2 slots
+3. Enter scores
+4. Click "Mark Winner" on the winning team
+5. Winner automatically moves to next round
+
+**Match Metadata:**
+- Edit match details in the team edit modal
+- Set start time, location, title, subtitle, description
+- Add schedule notes and prize information
+
+### Customizing Colors
+
+1. Go to admin panel
+2. Scroll to "Bracket Colors" section
+3. Use color pickers or enter hex codes
+4. Changes are live - see them immediately in the public view
+5. Contrast warnings help ensure readability
+
+### View Modes
+
+**Public Bracket:**
+- **Live**: Default view showing active matches
+- **Completed**: View finished matches
+- **Scheduled**: View upcoming scheduled matches
+- **Draws**: Full bracket tree overview
+
+Switch between modes using the buttons above the bracket.
 
 ## Deployment
 
-1. Zorg dat `.env`-variabelen ook in je hostingplatform staan.
-2. Draai `npm run build` lokaal om te valideren dat alles compileert.
-3. Deploy naar Vercel (aanbevolen) of elke Node-platform die Next.js 15 ondersteunt.
-4. Start productie met `npm run start`. Zowel `/` als `/admin` worden statisch geprerend en hydrateren daarna.
+### Vercel (Recommended)
 
----
+1. Push code to GitHub
+2. Import project in Vercel
+3. Add environment variables in Vercel dashboard:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+4. Deploy
 
-## Known limitations & roadmap
+Vercel automatically detects Next.js and configures build settings.
 
-- **Opslag**: Data wordt zowel lokaal (`localStorage`) als in Supabase opgeslagen. Supabase sync is alleen actief wanneer een `tournamentId` is ingesteld via de admin interface.
-- **Logo opslag**: Logo's worden opgeslagen als data URLs (base64) in localStorage en Supabase. Dit betekent dat ze ongeveer 33% groter zijn dan het originele bestand. Bij veel/grote logo's kan localStorage vol raken (meestal ~5-10MB limiet). Voor productie met veel teams zou je kunnen overwegen om weer naar Supabase Storage of een andere oplossing te gaan.
-- Double elimination is een vereenvoudigde losers-bracket, niet 1:1 met officiële circuits.
-- Geen auth/ACL: `/admin` is voor demo-doeleinden publiek. In productie zou je authenticatie moeten toevoegen.
-- Geen productiescreenshots of assets meegeleverd; voeg eigen branding toe voor showcases.
-- Supabase sync is optioneel: de app werkt volledig standalone met localStorage als Supabase niet is geconfigureerd.
+### Other Platforms
 
----
+The app can be deployed to any platform supporting Next.js 15:
+- Netlify
+- Railway
+- Self-hosted Node.js server
 
-## Submission checklist
+Make sure to:
+- Set environment variables
+- Run `npm run build` successfully
+- Configure Node.js 20+ runtime
 
-- [ ] `.env.local` bevat geldige Supabase keys (optioneel - app werkt ook zonder).
-- [ ] `npm install` + `npm run build` draaien zonder fouten.
-- [ ] `npm run lint` is uitgevoerd (lokaal, buiten sandbox indien nodig).
-- [ ] Minimaal één teams- en bracketconfiguratie getest in `/admin`.
-- [ ] Supabase database schema is aangemaakt (als je Supabase gebruikt) - voer `supabase-schema.sql` uit.
-- [ ] Supabase sync is getest: maak een tournament aan en controleer of data wordt opgeslagen.
-- [ ] Logo upload is getest: upload een logo en controleer dat deze wordt opgeslagen en getoond.
-- [ ] Documentatie (dit bestand) is up-to-date en meegestuurd.
-- [ ] Optionele screenshots of demo-video toegevoegd aan `public/` of je inleverplatform.
+### Build Process
 
----
+```bash
+npm run build
+```
 
-## Contributie
+This will:
+- Compile TypeScript
+- Run ESLint
+- Generate static pages where possible
+- Create optimized production build
 
-1. Fork & clone.
-2. `npm install && npm run lint`.
-3. Voeg features/tests toe; documenteer wijzigingen in deze README.
-4. Open een pull request met context, screenshots en testresultaten.
+### Production Checklist
 
----
+- [ ] Environment variables configured
+- [ ] Supabase database schema created (if using Supabase)
+- [ ] Build completes without errors
+- [ ] Test admin panel functionality
+- [ ] Test public bracket view
+- [ ] Verify Supabase sync (if enabled)
+- [ ] Test on mobile devices
+- [ ] Check browser console for errors
 
-## Licentie
+## Troubleshooting
 
-Er is geen licentiebestand opgenomen; ga uit van “All rights reserved” tenzij anders overeengekomen met de auteur.
+### Build Errors
+
+**ESLint errors:**
+- Run `npm run lint` to see specific issues
+- Most can be auto-fixed with `npm run lint -- --fix`
+- Check for unescaped entities in JSX (use `&quot;` instead of `"`)
+
+**TypeScript errors:**
+- Ensure all types are properly imported
+- Check `tsconfig.json` paths are correct
+- Verify Next.js types are installed
+
+### Runtime Issues
+
+**State not persisting:**
+- Check browser localStorage is enabled
+- Clear localStorage and reload if data seems corrupted
+- Check browser console for errors
+
+**Supabase sync not working:**
+- Verify environment variables are set correctly
+- Check Supabase project is active
+- Verify database schema is created
+- Check browser console for API errors
+- Ensure tournament ID is set in admin panel
+
+**Logo upload fails:**
+- Check file size (max 5MB)
+- Verify file type (JPEG, PNG, GIF, WebP, SVG)
+- Check browser console for errors
+- Try using URL instead of file upload
+
+**Bracket not generating:**
+- Ensure at least one team is added
+- Check browser console for errors
+- Verify bracket type is selected
+
+### Performance Issues
+
+**Slow loading:**
+- Check number of teams (many teams = larger state)
+- Logo sizes (large logos increase localStorage usage)
+- Consider using Supabase Storage for logos in production
+
+**localStorage full:**
+- Reduce number of teams
+- Use smaller logo files
+- Consider Supabase Storage for logos
+- Clear old tournament data
+
+## Limitations & Future Improvements
+
+### Current Limitations
+
+- **Double Elimination**: Simplified version, not exactly like official tournament circuits
+- **Authentication**: Admin panel is public (add auth for production use)
+- **Logo Storage**: Uses localStorage (limited to ~5-10MB)
+- **Offline Sync**: No conflict resolution for concurrent edits
+- **Real-time Updates**: No live updates between multiple users (Supabase Realtime could be added)
+
+### Recommended Improvements for Production
+
+1. **Authentication**: Add Supabase Auth or NextAuth to protect admin panel
+2. **Logo Storage**: Migrate to Supabase Storage or Cloudinary
+3. **Real-time Updates**: Implement Supabase Realtime for live bracket updates
+4. **Export Functionality**: Add PDF/PNG export of bracket
+5. **Email Notifications**: Notify users of match updates
+6. **Tournament Templates**: Pre-configured tournament setups
+7. **Multi-language Support**: Internationalization
+8. **Advanced Bracket Types**: Swiss system, Round Robin
+9. **Conflict Resolution**: Handle concurrent edits
+10. **Analytics**: Track bracket views and engagement
+
+## Scripts
+
+- `npm run dev` - Start development server with hot reload
+- `npm run build` - Build for production (includes TypeScript and ESLint checks)
+- `npm run start` - Start production server
+- `npm run lint` - Run ESLint
+
+## Credits
+
+**Thijn Opperman** - All components, design, and UI/UX implementation
+- All React components (`BracketContainer`, `BracketOverview`, `MatchCard`, `MatchDetailsPanel`, `TeamSlot`)
+- Complete UI/UX design and styling
+- Admin interface design and functionality
+- Bracket visualization and animations
+- Help modal and user experience
+
+### Related Projects
+
+This bracket is part of the **RoshProject** - a larger tournament website builder platform.
+
+**Repository:** [https://github.com/Jasper-van-Tilborg/roshproject](https://github.com/Jasper-van-Tilborg/roshproject)  
+**Live Demo:** [https://roshproject.vercel.app](https://roshproject.vercel.app)
+
+The RoshProject includes:
+- **AI Live Editor**: AI-powered website generation via Claude API
+- **Custom Live Editor**: Visual drag-and-drop builder for tournament websites
+- **Tournament Management Dashboard**: Manage multiple tournaments
+- **Bracket Component**: This bracket application integrated into the platform
+
+For full credits of all contributors to the RoshProject, see the [RoshProject README](https://github.com/Jasper-van-Tilborg/roshproject).
+
+## License
+
+No license file included - assume "All rights reserved" unless otherwise agreed with the author.
